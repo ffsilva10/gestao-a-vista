@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Gestão à Vista</title>
+<!-- APP_VERSION: 1 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#14171c; --panel:#1d2229; --panel2:#262c35; --line:#333b46;
+    --text:#e8eaed; --text-dim:#8b93a1; --text-faint:#5c6472;
+    --amber:#f2a93b; --green:#3fb27f; --red:#e85d5d; --blue:#4c8dff;
+    --amber-glow: rgba(242,169,59,.35); --green-glow: rgba(63,178,127,.4); --red-glow: rgba(232,93,93,.4);
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.disp{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  a{color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+
+  /* ---------- LOGIN ---------- */
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(242,169,59,.06), transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(76,141,255,.07), transparent 45%),
+      var(--bg);}
+  .loginBox{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:32px 28px;}
+  .loginBox .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .lightDot{width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber-glow);flex:none;}
+  .loginBox h1{font-size:28px;margin:0;color:#fff;}
+  .loginBox p.sub{color:var(--text-dim);font-size:13px;margin:2px 0 24px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:6px;}
+  .field input,.field select,.field textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:11px 12px;border-radius:8px;font-size:14px;outline:none;transition:border-color .15s;}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);}
+  .btn{border:none;border-radius:8px;padding:11px 16px;font-size:13px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;transition:filter .12s, transform .05s;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--amber);color:#1a1503;width:100%;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);}
+  .btn-ghost:hover{border-color:var(--text-dim);}
+  .btn-danger{background:transparent;border:1px solid var(--red);color:var(--red);}
+  .btn-sm{padding:7px 12px;font-size:11px;}
+  #loginErr{color:var(--red);font-size:12.5px;margin-top:10px;min-height:14px;}
+
+  /* ---------- SHELL ---------- */
+  #appShell{display:none;min-height:100vh;}
+  .sidebar{width:220px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;
+    position:fixed;top:0;bottom:0;left:0;display:flex;flex-direction:column;z-index:50;}
+  .sidebar .brand{display:flex;align-items:center;gap:9px;padding:0 8px 20px;border-bottom:1px solid var(--line);margin-bottom:16px;}
+  .sidebar .brand h1{font-size:19px;color:#fff;margin:0;line-height:1;}
+  .navItem{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--text-dim);
+    font-size:13.5px;font-weight:500;margin-bottom:2px;cursor:pointer;transition:background .12s,color .12s;}
+  .navItem svg{width:17px;height:17px;flex:none;opacity:.8;}
+  .navItem:hover{background:var(--panel2);color:var(--text);}
+  .navItem.active{background:var(--panel2);color:var(--amber);}
+  .navItem.active svg{opacity:1;}
+  .sidebarFoot{margin-top:auto;border-top:1px solid var(--line);padding-top:12px;}
+  .userChip{font-size:12px;color:var(--text-faint);padding:0 8px 8px;word-break:break-all;}
+
+  main{margin-left:220px;padding:26px 30px 60px;max-width:1180px;}
+  .pageHead{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+  .pageHead h2{font-size:26px;color:#fff;margin:0;}
+  .pageHead p{color:var(--text-dim);font-size:13px;margin:4px 0 0;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .grid{display:grid;gap:14px;}
+  .grid-cards{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));}
+
+  /* member card w/ andon light signature */
+  .memberCard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 16px 16px 20px;overflow:hidden;}
+  .andon{position:absolute;left:0;top:0;bottom:0;width:6px;}
+  .andon.green{background:var(--green);box-shadow:0 0 14px 1px var(--green-glow) inset;}
+  .andon.amber{background:var(--amber);box-shadow:0 0 14px 1px var(--amber-glow) inset;}
+  .andon.red{background:var(--red);box-shadow:0 0 14px 1px var(--red-glow) inset;}
+  .andon.grey{background:var(--line);}
+  .mcTop{display:flex;justify-content:space-between;align-items:flex-start;}
+  .mcName{font-size:17px;font-weight:700;color:#fff;}
+  .mcCargo{font-size:12px;color:var(--text-dim);margin-top:1px;}
+  .mcScore{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;text-align:right;}
+  .mcScore.green{color:var(--green);} .mcScore.amber{color:var(--amber);} .mcScore.red{color:var(--red);} .mcScore.grey{color:var(--text-dim);}
+  .mcScore .lbl{display:block;font-size:9px;color:var(--text-faint);font-family:'Inter';font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+  .mcObj{font-size:12.5px;color:var(--text-dim);margin-top:10px;line-height:1.5;border-top:1px solid var(--line);padding-top:10px;}
+  .mcMeta{display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:var(--text-faint);}
+  .mcActions{display:flex;gap:8px;margin-top:12px;}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;}
+  .panel + .panel{margin-top:14px;}
+  .panel h3{font-size:14px;color:#fff;margin:0 0 12px;letter-spacing:.03em;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:var(--text-faint);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+    padding:0 10px 8px;border-bottom:1px solid var(--line);}
+  td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+
+  .badge{display:inline-block;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+    padding:3px 9px;border-radius:20px;}
+  .badge.pendente{background:rgba(242,169,59,.15);color:var(--amber);}
+  .badge.cobrado{background:rgba(76,141,255,.15);color:var(--blue);}
+  .badge.concluido{background:rgba(63,178,127,.15);color:var(--green);}
+  .badge.positiva{background:rgba(63,178,127,.15);color:var(--green);}
+  .badge.negativa{background:rgba(232,93,93,.15);color:var(--red);}
+
+  .modalBg{display:none;position:fixed;inset:0;background:rgba(10,12,15,.72);z-index:100;align-items:flex-start;justify-content:center;
+    padding:30px 16px;overflow-y:auto;}
+  .modalBg.active{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);width:100%;max-width:560px;padding:24px;margin-bottom:30px;}
+  .modal h3{font-size:18px;color:#fff;margin:0 0 4px;}
+  .modal .close{position:absolute;}
+  .modalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .xClose{background:none;border:none;color:var(--text-dim);font-size:20px;line-height:1;padding:4px;}
+
+  select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b93a1'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+
+  .intensityRow{display:flex;gap:8px;}
+  .intBtn{flex:1;text-align:center;padding:10px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);
+    font-size:12px;font-weight:600;color:var(--text-dim);}
+  .intBtn.sel-baixa.on{border-color:var(--text-dim);color:var(--text);background:#333b46;}
+  .intBtn.sel-media.on{border-color:var(--amber);color:var(--amber);background:rgba(242,169,59,.1);}
+  .intBtn.sel-alta.on{border-color:var(--red);color:var(--red);background:rgba(232,93,93,.1);}
+  .tipoRow{display:flex;gap:8px;margin-bottom:14px;}
+  .tipoBtn{flex:1;padding:11px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-weight:700;font-size:12.5px;
+    text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);}
+  .tipoBtn.positiva.on{border-color:var(--green);color:var(--green);background:rgba(63,178,127,.1);}
+  .tipoBtn.negativa.on{border-color:var(--red);color:var(--red);background:rgba(232,93,93,.1);}
+
+  .insightBox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-top:10px;font-size:13px;line-height:1.6;white-space:pre-wrap;}
+  .insightBox h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--amber);margin:0 0 6px;font-family:'Inter';font-weight:700;}
+  .acaoChip{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:6px;font-size:12.5px;}
+  .acaoChip input{margin:0;}
+
+  .emptyState{text-align:center;padding:50px 20px;color:var(--text-faint);}
+  .emptyState svg{width:38px;height:38px;opacity:.35;margin-bottom:10px;}
+  .emptyState p{font-size:13px;margin:0;}
+
+  .barChart{display:flex;align-items:flex-end;gap:16px;height:180px;padding:10px 6px 0;}
+  .barCol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+  .barTrack{width:100%;max-width:46px;flex:1;display:flex;align-items:flex-end;}
+  .barFill{width:100%;border-radius:5px 5px 0 0;transition:height .4s ease;min-height:3px;}
+  .barVal{font-family:'JetBrains Mono';font-size:12px;font-weight:700;margin-bottom:4px;}
+  .barLbl{font-size:10.5px;color:var(--text-dim);margin-top:8px;text-align:center;}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#242a32;border:1px solid var(--line);
+    color:var(--text);padding:11px 18px;border-radius:8px;font-size:13px;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+  .toast.err{border-color:var(--red);color:#ffb4b4;}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#1a1503;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .mobileTopbar{display:none;}
+  @media (max-width:840px){
+    .sidebar{transform:translateX(-100%);transition:transform .2s;width:230px;}
+    .sidebar.open{transform:translateX(0);}
+    main{margin-left:0;padding:76px 16px 50px;}
+    .mobileTopbar{display:flex;align-items:center;justify-content:space-between;position:fixed;top:0;left:0;right:0;height:56px;
+      background:var(--panel);border-bottom:1px solid var(--line);padding:0 14px;z-index:40;}
+    .mobileTopbar .brand{display:flex;align-items:center;gap:8px;}
+    .mobileTopbar h1{font-size:17px;color:#fff;margin:0;}
+    .hamb{background:none;border:none;color:var(--text);font-size:22px;padding:6px;}
+    .sidebarOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:45;}
+    .sidebarOverlay.active{display:block;}
+    .row2{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen">
+  <div class="loginBox">
+    <div class="brand"><span class="lightDot"></span><h1>Gestão à Vista</h1></div>
+    <p class="sub">Painel de gestão de equipe — Fábio</p>
+    <div class="field"><label>E-mail</label><input type="email" id="loginEmail" autocomplete="username"></div>
+    <div class="field"><label>Senha</label><input type="password" id="loginPass" autocomplete="current-password"></div>
+    <button class="btn btn-primary" id="btnLogin" onclick="doLogin()">Entrar</button>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ================= APP SHELL ================= -->
+<div id="appShell">
+  <div class="mobileTopbar">
+    <div class="brand"><span class="lightDot"></span><h1>Gestão à Vista</h1></div>
+    <button class="hamb" onclick="toggleSidebar()">☰</button>
+  </div>
+  <div class="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <nav class="sidebar" id="sidebar">
+    <div class="brand"><span class="lightDot"></span><h1>Gestão à Vista</h1></div>
+    <div class="navItem active" data-view="inicio" onclick="goView('inicio')">🏠&nbsp; Início</div>
+    <div class="navItem" data-view="equipe" onclick="goView('equipe')">👥&nbsp; Equipe</div>
+    <div class="navItem" data-view="reunioes" onclick="goView('reunioes')">📝&nbsp; Reuniões</div>
+    <div class="navItem" data-view="acoes" onclick="goView('acoes')">✅&nbsp; Ações</div>
+    <div class="navItem" data-view="pontuacao" onclick="goView('pontuacao')">📊&nbsp; Pontuação</div>
+    <div class="sidebarFoot">
+      <div class="userChip" id="userChip"></div>
+      <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ---------- INÍCIO ---------- -->
+    <section class="view active" id="view-inicio">
+      <div class="pageHead">
+        <div><h2>Início</h2><p>Visão geral da equipe — luz indica tendência de desempenho</p></div>
+        <button class="btn btn-primary btn-sm" onclick="openMembroModal()">+ Membro</button>
+      </div>
+      <div class="grid grid-cards" id="inicioCards"></div>
+
+      <div class="panel" style="margin-top:18px;">
+        <h3>Próximas reuniões combinadas</h3>
+        <div id="proximasReunioes"></div>
+      </div>
+    </section>
+
+    <!-- ---------- EQUIPE ---------- -->
+    <section class="view" id="view-equipe">
+      <div class="pageHead">
+        <div><h2>Equipe</h2><p>Cadastro, objetivo e observações de cada colaborador</p></div>
+        <button class="btn btn-primary btn-sm" onclick="openMembroModal()">+ Membro</button>
+      </div>
+      <div class="grid grid-cards" id="equipeCards"></div>
+    </section>
+
+    <!-- ---------- REUNIÕES ---------- -->
+    <section class="view" id="view-reunioes">
+      <div class="pageHead">
+        <div><h2>Reuniões</h2><p>Cole a transcrição da gravação — a IA gera a ata, os insights e as ações</p></div>
+      </div>
+
+      <div class="panel">
+        <h3>Nova reunião</h3>
+        <div class="row2">
+          <div class="field"><label>Colaborador</label><select id="reMembro"></select></div>
+          <div class="field"><label>Data da reunião</label><input type="date" id="reData"></div>
+        </div>
+        <div class="field">
+          <label>Colar transcrição / ata da reunião</label>
+          <textarea id="reTranscricao" rows="9" placeholder="Cole aqui o texto transcrito da gravação da reunião..."></textarea>
+        </div>
+        <button class="btn btn-primary" id="btnGerarInsights" onclick="gerarInsights()">Confirmar e gerar ata com IA</button>
+
+        <div id="reResultado" style="display:none;">
+          <div class="insightBox"><h4>Ata gerada</h4><div id="outAta"></div></div>
+          <div class="insightBox"><h4>Insights</h4><div id="outInsights"></div></div>
+          <div class="insightBox">
+            <h4>Ações sugeridas</h4>
+            <div id="outAcoes"></div>
+          </div>
+          <div class="row2" style="margin-top:10px;">
+            <div class="field"><label>Próxima reunião sugerida</label><input type="date" id="outProxReuniao"></div>
+            <div class="field" style="display:flex;align-items:flex-end;">
+              <button class="btn btn-primary" style="width:100%" onclick="salvarReuniao()">Salvar reunião e ações</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Histórico de reuniões</h3>
+        <div id="historicoReunioes"></div>
+      </div>
+    </section>
+
+    <!-- ---------- AÇÕES ---------- -->
+    <section class="view" id="view-acoes">
+      <div class="pageHead">
+        <div><h2>Ações</h2><p>O que foi combinado em reunião — cobrar até concluir</p></div>
+      </div>
+      <div class="panel" style="padding:12px 16px;">
+        <select id="filtroAcoesMembro" onchange="renderAcoes()" style="min-width:180px;margin-right:8px;"></select>
+        <select id="filtroAcoesStatus" onchange="renderAcoes()">
+          <option value="">Todos status</option>
+          <option value="pendente">Pendente</option>
+          <option value="cobrado">Cobrado</option>
+          <option value="concluido">Concluído</option>
+        </select>
+      </div>
+      <div class="panel"><div id="acoesLista"></div></div>
+    </section>
+
+    <!-- ---------- PONTUAÇÃO ---------- -->
+    <section class="view" id="view-pontuacao">
+      <div class="pageHead">
+        <div><h2>Pontuação</h2><p>Ações positivas e negativas — baixa (1), média (3), alta (5) pontos</p></div>
+        <button class="btn btn-primary btn-sm" onclick="openPontuacaoModal()">+ Pontuar</button>
+      </div>
+
+      <div class="panel">
+        <h3>Pontuação acumulada por colaborador</h3>
+        <div class="barChart" id="chartAcumulado"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Histórico de pontuações</h3>
+        <div id="historicoPontuacoes"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ================= MODAL MEMBRO ================= -->
+<div class="modalBg" id="modalMembro">
+  <div class="modal">
+    <div class="modalHead"><h3 id="modalMembroTitle">Novo colaborador</h3><button class="xClose" onclick="closeModal('modalMembro')">✕</button></div>
+    <input type="hidden" id="mbId">
+    <div class="row2">
+      <div class="field"><label>Nome</label><input type="text" id="mbNome"></div>
+      <div class="field"><label>Cargo</label><input type="text" id="mbCargo"></div>
+    </div>
+    <div class="field"><label>Data de admissão</label><input type="date" id="mbAdmissao"></div>
+    <div class="field"><label>Objetivo / plano de desenvolvimento</label><textarea id="mbObjetivo" rows="3"></textarea></div>
+    <div class="field"><label>Observações gerais</label><textarea id="mbObs" rows="3"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="btn btn-primary" style="flex:1" onclick="salvarMembro()">Salvar</button>
+      <button class="btn btn-danger btn-sm" id="btnDelMembro" style="display:none" onclick="excluirMembro()">Desativar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL PONTUAÇÃO ================= -->
+<div class="modalBg" id="modalPontuacao">
+  <div class="modal">
+    <div class="modalHead"><h3>Registrar pontuação</h3><button class="xClose" onclick="closeModal('modalPontuacao')">✕</button></div>
+    <div class="field"><label>Colaborador</label><select id="ptMembro"></select></div>
+    <div class="tipoRow">
+      <button class="tipoBtn positiva" id="tipoPos" onclick="setTipo('positiva')">Positiva</button>
+      <button class="tipoBtn negativa" id="tipoNeg" onclick="setTipo('negativa')">Negativa</button>
+    </div>
+    <div class="field">
+      <label>Intensidade</label>
+      <div class="intensityRow">
+        <div class="intBtn sel-baixa" id="intBaixa" onclick="setIntensidade('baixa')">Baixa · 1pt</div>
+        <div class="intBtn sel-media" id="intMedia" onclick="setIntensidade('media')">Média · 3pt</div>
+        <div class="intBtn sel-alta" id="intAlta" onclick="setIntensidade('alta')">Alta · 5pt</div>
+      </div>
+    </div>
+    <div class="field"><label>Data</label><input type="date" id="ptData"></div>
+    <div class="field"><label>Descrição / observação</label><textarea id="ptDescricao" rows="3" placeholder="Ex: criou o BI de rotas sozinho, ótima entrega"></textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="salvarPontuacao()">Salvar pontuação</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ======================= CONFIG SUPABASE ======================= */
+const SUPABASE_URL = "https://ezivaaocpazhonktehra.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_ZUhwYbQ7BzFR9uqpBNqyOA_LEYUJEfs";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const PONTOS = { baixa: 1, media: 3, alta: 5 };
+const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Concluído' };
+const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
+const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
+
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], user: null };
+let tipoSel = 'positiva', intensidadeSel = 'media';
+
+/* ======================= HELPERS UI ======================= */
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(()=> t.className = 'toast', 2600);
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.querySelector('.sidebarOverlay').classList.toggle('active');
+}
+function goView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.navItem').forEach(el=>el.classList.toggle('active', el.dataset.view===v));
+  document.getElementById('sidebar').classList.remove('open');
+  document.querySelector('.sidebarOverlay').classList.remove('active');
+  if(v==='inicio') renderInicio();
+  if(v==='equipe') renderEquipe();
+  if(v==='reunioes') renderReunioesView();
+  if(v==='acoes') renderAcoes();
+  if(v==='pontuacao') renderPontuacaoView();
+}
+function openModal(id){ document.getElementById(id).classList.add('active'); }
+function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(d){ if(!d) return '—'; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
+
+function scoreMembro(membroId){
+  return STATE.pontuacoes.filter(p=>p.membro_id===membroId).reduce((s,p)=>s+p.pontos,0);
+}
+function tierFromScore(score){
+  if(score >= 6) return 'green';
+  if(score <= -4) return 'red';
+  return 'amber';
+}
+
+/* ======================= AUTH ======================= */
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const btn = document.getElementById('btnLogin');
+  const err = document.getElementById('loginErr');
+  err.textContent = '';
+  if(!email || !pass){ err.textContent = 'Preencha e-mail e senha.'; return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Entrando...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if(error){ err.textContent = 'E-mail ou senha inválidos.'; return; }
+  STATE.user = data.user;
+  await bootApp();
+}
+async function doLogout(){
+  await sb.auth.signOut();
+  location.reload();
+}
+async function checkSession(){
+  const { data } = await sb.auth.getSession();
+  if(data.session){ STATE.user = data.session.user; await bootApp(); }
+}
+
+/* ======================= BOOT ======================= */
+async function bootApp(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display = 'block';
+  document.getElementById('userChip').textContent = STATE.user.email;
+  document.getElementById('reData').value = todayISO();
+  document.getElementById('ptData').value = todayISO();
+  await carregarTudo();
+  goView('inicio');
+}
+
+async function carregarTudo(){
+  const [eq, re, ac, pt] = await Promise.all([
+    sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
+    sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
+    sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
+    sb.from('fp_gestao_pontuacoes').select('*').order('data_registro', {ascending:false})
+  ]);
+  if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
+  STATE.equipe = eq.data || [];
+  STATE.reunioes = re.data || [];
+  STATE.acoes = ac.data || [];
+  STATE.pontuacoes = pt.data || [];
+  fillMembroSelects();
+}
+
+function fillMembroSelects(){
+  const opts = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  document.getElementById('reMembro').innerHTML = opts;
+  document.getElementById('ptMembro').innerHTML = opts;
+  document.getElementById('filtroAcoesMembro').innerHTML = '<option value="">Todos colaboradores</option>' + opts;
+}
+
+/* ======================= INÍCIO ======================= */
+function renderInicio(){
+  const wrap = document.getElementById('inicioCards');
+  if(STATE.equipe.length===0){ wrap.innerHTML = emptyState('Nenhum colaborador cadastrado ainda.'); }
+  else {
+    wrap.innerHTML = STATE.equipe.map(m=>{
+      const score = scoreMembro(m.id);
+      const tier = tierFromScore(score);
+      const acoesAbertas = STATE.acoes.filter(a=>a.membro_id===m.id && a.status!=='concluido').length;
+      const ultimaReuniao = STATE.reunioes.find(r=>r.membro_id===m.id);
+      return `
+      <div class="memberCard">
+        <div class="andon ${tier}"></div>
+        <div class="mcTop">
+          <div><div class="mcName">${m.nome}</div><div class="mcCargo">${m.cargo||''}</div></div>
+          <div class="mcScore ${tier}"><span class="lbl">Score</span>${score>0?'+':''}${score}</div>
+        </div>
+        <div class="mcMeta">
+          <span>🗓 Últ. reunião: ${ultimaReuniao? fmtDate(ultimaReuniao.data_reuniao) : '—'}</span>
+          <span>✅ ${acoesAbertas} ação(ões) aberta(s)</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  const prox = document.getElementById('proximasReunioes');
+  const proximas = STATE.reunioes.filter(r=>r.proxima_reuniao).sort((a,b)=>a.proxima_reuniao.localeCompare(b.proxima_reuniao));
+  if(proximas.length===0){ prox.innerHTML = `<p style="color:var(--text-faint);font-size:13px;">Nenhuma próxima reunião combinada ainda.</p>`; }
+  else {
+    prox.innerHTML = `<table><tr><th>Colaborador</th><th>Data combinada</th></tr>` +
+      proximas.map(r=>{
+        const m = STATE.equipe.find(x=>x.id===r.membro_id);
+        return `<tr><td>${m? m.nome : '—'}</td><td class="mono">${fmtDate(r.proxima_reuniao)}</td></tr>`;
+      }).join('') + `</table>`;
+  }
+}
+
+function emptyState(msg){
+  return `<div class="emptyState"><p>${msg}</p></div>`;
+}
+
+/* ======================= EQUIPE ======================= */
+function renderEquipe(){
+  const wrap = document.getElementById('equipeCards');
+  if(STATE.equipe.length===0){ wrap.innerHTML = emptyState('Cadastre o primeiro colaborador.'); return; }
+  wrap.innerHTML = STATE.equipe.map(m=>{
+    const score = scoreMembro(m.id);
+    const tier = tierFromScore(score);
+    return `
+    <div class="memberCard">
+      <div class="andon ${tier}"></div>
+      <div class="mcTop">
+        <div><div class="mcName">${m.nome}</div><div class="mcCargo">${m.cargo||''} ${m.data_admissao? '· desde '+fmtDate(m.data_admissao):''}</div></div>
+      </div>
+      <div class="mcObj">${m.objetivo ? m.objetivo : '<span style="color:var(--text-faint)">Sem objetivo definido</span>'}</div>
+      ${m.observacoes ? `<div class="mcObj">📌 ${m.observacoes}</div>` : ''}
+      <div class="mcActions">
+        <button class="btn btn-ghost btn-sm" onclick="openMembroModal('${m.id}')">Editar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openMembroModal(id){
+  document.getElementById('mbId').value = id || '';
+  if(id){
+    const m = STATE.equipe.find(x=>x.id===id);
+    document.getElementById('modalMembroTitle').textContent = 'Editar colaborador';
+    document.getElementById('mbNome').value = m.nome || '';
+    document.getElementById('mbCargo').value = m.cargo || '';
+    document.getElementById('mbAdmissao').value = m.data_admissao || '';
+    document.getElementById('mbObjetivo').value = m.objetivo || '';
+    document.getElementById('mbObs').value = m.observacoes || '';
+    document.getElementById('btnDelMembro').style.display = 'inline-block';
+  } else {
+    document.getElementById('modalMembroTitle').textContent = 'Novo colaborador';
+    ['mbNome','mbCargo','mbAdmissao','mbObjetivo','mbObs'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('btnDelMembro').style.display = 'none';
+  }
+  openModal('modalMembro');
+}
+
+async function salvarMembro(){
+  const id = document.getElementById('mbId').value;
+  const payload = {
+    nome: document.getElementById('mbNome').value.trim(),
+    cargo: document.getElementById('mbCargo').value.trim(),
+    data_admissao: document.getElementById('mbAdmissao').value || null,
+    objetivo: document.getElementById('mbObjetivo').value.trim(),
+    observacoes: document.getElementById('mbObs').value.trim()
+  };
+  if(!payload.nome){ toast('Informe o nome.', true); return; }
+  let error;
+  if(id){ ({error} = await sb.from('fp_gestao_equipe').update(payload).eq('id', id)); }
+  else { ({error} = await sb.from('fp_gestao_equipe').insert(payload)); }
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalMembro');
+  await carregarTudo();
+  renderEquipe(); renderInicio();
+  toast('Colaborador salvo.');
+}
+
+async function excluirMembro(){
+  const id = document.getElementById('mbId').value;
+  if(!confirm('Desativar este colaborador? O histórico é mantido.')) return;
+  const { error } = await sb.from('fp_gestao_equipe').update({ativo:false}).eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  closeModal('modalMembro');
+  await carregarTudo();
+  renderEquipe(); renderInicio();
+  toast('Colaborador desativado.');
+}
+
+/* ======================= REUNIÕES ======================= */
+function renderReunioesView(){
+  document.getElementById('reResultado').style.display = 'none';
+  const wrap = document.getElementById('historicoReunioes');
+  if(STATE.reunioes.length===0){ wrap.innerHTML = emptyState('Nenhuma reunião registrada ainda.'); return; }
+  wrap.innerHTML = STATE.reunioes.map(r=>{
+    const m = STATE.equipe.find(x=>x.id===r.membro_id);
+    return `
+    <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
+      <div style="display:flex;justify-content:space-between;">
+        <strong>${m? m.nome : '—'}</strong>
+        <span class="mono" style="color:var(--text-dim);font-size:12px;">${fmtDate(r.data_reuniao)}</span>
+      </div>
+      ${r.ata_gerada? `<div class="insightBox" style="margin-top:10px;">${r.ata_gerada}</div>` : ''}
+      ${r.proxima_reuniao? `<div style="margin-top:8px;font-size:12px;color:var(--text-dim);">🗓 Próxima reunião: <span class="mono">${fmtDate(r.proxima_reuniao)}</span></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+let insightsGerados = null;
+async function gerarInsights(){
+  const membroId = document.getElementById('reMembro').value;
+  const data = document.getElementById('reData').value;
+  const transcricao = document.getElementById('reTranscricao').value.trim();
+  if(!membroId){ toast('Cadastre e selecione um colaborador primeiro.', true); return; }
+  if(!transcricao){ toast('Cole a transcrição da reunião.', true); return; }
+  const membro = STATE.equipe.find(m=>m.id===membroId);
+
+  const btn = document.getElementById('btnGerarInsights');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Gerando com IA...';
+
+  try{
+    const { data: fnData, error } = await sb.functions.invoke('gestao-gerar-insights', {
+      body: {
+        transcricao,
+        nome_membro: membro.nome,
+        cargo_membro: membro.cargo,
+        objetivo_membro: membro.objetivo,
+        data_reuniao: data
+      }
+    });
+    if(error) throw error;
+
+    insightsGerados = fnData;
+    document.getElementById('outAta').textContent = fnData.ata || '';
+    document.getElementById('outInsights').textContent = fnData.insights || '';
+    document.getElementById('outProxReuniao').value = fnData.proxima_reuniao_sugerida || '';
+    const acoesWrap = document.getElementById('outAcoes');
+    const acoes = fnData.acoes || [];
+    acoesWrap.innerHTML = acoes.length
+      ? acoes.map((a,i)=>`<div class="acaoChip"><input type="checkbox" checked data-idx="${i}"><span>${a}</span></div>`).join('')
+      : '<span style="color:var(--text-faint);font-size:12.5px;">Nenhuma ação sugerida.</span>';
+    document.getElementById('reResultado').style.display = 'block';
+    toast('Ata gerada. Revise e salve abaixo.');
+  } catch(e){
+    toast('Erro ao gerar insights: ' + (e.message||e), true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Confirmar e gerar ata com IA';
+  }
+}
+
+async function salvarReuniao(){
+  if(!insightsGerados){ toast('Gere a ata primeiro.', true); return; }
+  const membroId = document.getElementById('reMembro').value;
+  const data = document.getElementById('reData').value;
+  const transcricao = document.getElementById('reTranscricao').value.trim();
+  const proxReuniao = document.getElementById('outProxReuniao').value || null;
+
+  const { data: reuniaoRow, error } = await sb.from('fp_gestao_reunioes').insert({
+    membro_id: membroId,
+    data_reuniao: data,
+    transcricao_bruta: transcricao,
+    ata_gerada: insightsGerados.ata,
+    insights: insightsGerados.insights,
+    proxima_reuniao: proxReuniao
+  }).select().single();
+
+  if(error){ toast('Erro ao salvar reunião: ' + error.message, true); return; }
+
+  const checks = document.querySelectorAll('#outAcoes input[type=checkbox]:checked');
+  const acoesTexto = (insightsGerados.acoes || []);
+  const acoesParaSalvar = Array.from(checks).map(c => acoesTexto[c.dataset.idx]).filter(Boolean);
+  if(acoesParaSalvar.length){
+    const rows = acoesParaSalvar.map(descricao => ({
+      membro_id: membroId, reuniao_id: reuniaoRow.id, descricao, status: 'pendente'
+    }));
+    const { error: errAcoes } = await sb.from('fp_gestao_acoes').insert(rows);
+    if(errAcoes) toast('Reunião salva, mas houve erro ao salvar ações: ' + errAcoes.message, true);
+  }
+
+  document.getElementById('reTranscricao').value = '';
+  document.getElementById('reResultado').style.display = 'none';
+  insightsGerados = null;
+  await carregarTudo();
+  renderReunioesView();
+  toast('Reunião e ações salvas.');
+}
+
+/* ======================= AÇÕES ======================= */
+function renderAcoes(){
+  const membroF = document.getElementById('filtroAcoesMembro').value;
+  const statusF = document.getElementById('filtroAcoesStatus').value;
+  let lista = STATE.acoes.slice();
+  if(membroF) lista = lista.filter(a=>a.membro_id===membroF);
+  if(statusF) lista = lista.filter(a=>a.status===statusF);
+
+  const wrap = document.getElementById('acoesLista');
+  if(lista.length===0){ wrap.innerHTML = emptyState('Nenhuma ação encontrada.'); return; }
+
+  wrap.innerHTML = `<table><tr><th>Colaborador</th><th>Ação combinada</th><th>Status</th><th></th></tr>` +
+    lista.map(a=>{
+      const m = STATE.equipe.find(x=>x.id===a.membro_id);
+      return `<tr>
+        <td>${m? m.nome : '—'}</td>
+        <td>${a.descricao}</td>
+        <td><span class="badge ${a.status}">${STATUS_LABEL[a.status]}</span></td>
+        <td>
+          <select onchange="mudarStatusAcao('${a.id}', this.value)" style="font-size:12px;padding:6px 8px;">
+            <option value="pendente" ${a.status==='pendente'?'selected':''}>Pendente</option>
+            <option value="cobrado" ${a.status==='cobrado'?'selected':''}>Cobrado</option>
+            <option value="concluido" ${a.status==='concluido'?'selected':''}>Concluído</option>
+          </select>
+        </td>
+      </tr>`;
+    }).join('') + `</table>`;
+}
+
+async function mudarStatusAcao(id, status){
+  const { error } = await sb.from('fp_gestao_acoes').update({status}).eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarTudo();
+  renderAcoes(); renderInicio();
+}
+
+/* ======================= PONTUAÇÃO ======================= */
+function openPontuacaoModal(){
+  document.getElementById('ptData').value = todayISO();
+  document.getElementById('ptDescricao').value = '';
+  setTipo('positiva'); setIntensidade('media');
+  openModal('modalPontuacao');
+}
+function setTipo(t){
+  tipoSel = t;
+  document.getElementById('tipoPos').classList.toggle('on', t==='positiva');
+  document.getElementById('tipoNeg').classList.toggle('on', t==='negativa');
+}
+function setIntensidade(i){
+  intensidadeSel = i;
+  document.getElementById('intBaixa').classList.toggle('on', i==='baixa');
+  document.getElementById('intMedia').classList.toggle('on', i==='media');
+  document.getElementById('intAlta').classList.toggle('on', i==='alta');
+}
+async function salvarPontuacao(){
+  const membroId = document.getElementById('ptMembro').value;
+  const data = document.getElementById('ptData').value || todayISO();
+  const descricao = document.getElementById('ptDescricao').value.trim();
+  if(!membroId){ toast('Cadastre um colaborador primeiro.', true); return; }
+  let pontos = PONTOS[intensidadeSel];
+  if(tipoSel==='negativa') pontos = -pontos;
+
+  const { error } = await sb.from('fp_gestao_pontuacoes').insert({
+    membro_id: membroId, data_registro: data, tipo: tipoSel,
+    intensidade: intensidadeSel, pontos, descricao
+  });
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalPontuacao');
+  await carregarTudo();
+  renderPontuacaoView(); renderInicio();
+  toast('Pontuação registrada.');
+}
+
+function renderPontuacaoView(){
+  renderChartAcumulado();
+  const wrap = document.getElementById('historicoPontuacoes');
+  if(STATE.pontuacoes.length===0){ wrap.innerHTML = emptyState('Nenhuma pontuação registrada ainda.'); return; }
+  wrap.innerHTML = `<table><tr><th>Colaborador</th><th>Data</th><th>Tipo</th><th>Intens.</th><th>Pontos</th><th>Descrição</th></tr>` +
+    STATE.pontuacoes.map(p=>{
+      const m = STATE.equipe.find(x=>x.id===p.membro_id);
+      return `<tr>
+        <td>${m? m.nome : '—'}</td>
+        <td class="mono">${fmtDate(p.data_registro)}</td>
+        <td><span class="badge ${p.tipo}">${TIPO_LABEL[p.tipo]}</span></td>
+        <td>${INT_LABEL[p.intensidade]}</td>
+        <td class="mono" style="color:${p.pontos>0?'var(--green)':'var(--red)'}">${p.pontos>0?'+':''}${p.pontos}</td>
+        <td style="color:var(--text-dim)">${p.descricao||''}</td>
+      </tr>`;
+    }).join('') + `</table>`;
+}
+
+function renderChartAcumulado(){
+  const el = document.getElementById('chartAcumulado');
+  if(STATE.equipe.length===0){ el.innerHTML = emptyState('Cadastre colaboradores para ver o gráfico.'); return; }
+  const dados = STATE.equipe.map(m=>({nome:m.nome, score: scoreMembro(m.id)}));
+  const maxAbs = Math.max(5, ...dados.map(d=>Math.abs(d.score)));
+  el.innerHTML = dados.map(d=>{
+    const tier = tierFromScore(d.score);
+    const color = tier==='green' ? 'var(--green)' : tier==='red' ? 'var(--red)' : 'var(--amber)';
+    const pct = Math.max(4, Math.round((Math.abs(d.score)/maxAbs)*100));
+    return `
+    <div class="barCol">
+      <div class="barVal" style="color:${color}">${d.score>0?'+':''}${d.score}</div>
+      <div class="barTrack"><div class="barFill" style="height:${pct}%;background:${color};"></div></div>
+      <div class="barLbl">${d.nome}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ======================= INIT ======================= */
+checkSession();
+document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+</script>
+</body>
+</html>
