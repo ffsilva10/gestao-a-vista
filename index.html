@@ -243,6 +243,7 @@
     <div class="navItem" data-view="equipe" onclick="goView('equipe')">👥&nbsp; Equipe</div>
     <div class="navItem" data-view="reunioes" onclick="goView('reunioes')">📝&nbsp; Reuniões</div>
     <div class="navItem" data-view="acoes" onclick="goView('acoes')">✅&nbsp; Ações</div>
+    <div class="navItem" data-view="projetos" onclick="goView('projetos')">🗂️&nbsp; Projetos</div>
     <div class="navItem" data-view="pontuacao" onclick="goView('pontuacao')">📊&nbsp; Pontuação</div>
     <div class="navItem" data-view="cultura" onclick="goView('cultura')">🧭&nbsp; Cultura</div>
     <div class="navItem" data-view="meudesenvolvimento" onclick="goView('meudesenvolvimento')">🎯&nbsp; Meu Desenvolvimento</div>
@@ -336,6 +337,25 @@
       <div class="panel"><div id="acoesLista"></div></div>
     </section>
 
+    <!-- ---------- PROJETOS ---------- -->
+    <section class="view" id="view-projetos">
+      <div class="pageHead">
+        <div><h2>Projetos</h2><p>Andamento por colaborador — o que está sendo entregue e quando</p></div>
+        <button class="btn btn-primary btn-sm" onclick="openProjetoModal()">+ Projeto</button>
+      </div>
+      <div class="panel" style="padding:12px 16px;">
+        <select id="filtroProjetosMembro" onchange="renderProjetos()" style="min-width:180px;margin-right:8px;"></select>
+        <select id="filtroProjetosStatus" onchange="renderProjetos()">
+          <option value="">Todos status</option>
+          <option value="planejado">Planejado</option>
+          <option value="em_andamento">Em andamento</option>
+          <option value="atrasado">Atrasado</option>
+          <option value="concluido">Concluído</option>
+        </select>
+      </div>
+      <div class="grid grid-cards" id="projetosLista"></div>
+    </section>
+
     <!-- ---------- PONTUAÇÃO ---------- -->
     <section class="view" id="view-pontuacao">
       <div class="pageHead">
@@ -389,6 +409,11 @@
           <button class="btn btn-ghost btn-sm" onclick="openMarcoModal()">+ Marco</button>
         </div>
         <div id="marcosLista" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Projetos entregues pela minha gestão</h3>
+        <div id="projetosEntreguesLista" style="margin-top:10px;"></div>
       </div>
     </section>
 
@@ -445,8 +470,8 @@
     <div class="field"><label>Minha percepção (pontos fortes, a desenvolver, postura, apresentação)</label><textarea id="mbPercepcao" rows="4" placeholder="Sua análise inicial sobre o colaborador — a IA usa isso junto com as atas de reunião pra sugerir o perfil dele e o alinhamento com a cultura"></textarea></div>
     <div class="field"><label>Observações gerais</label><textarea id="mbObs" rows="3"></textarea></div>
     <div class="row2">
-      <div class="field"><label>Salário atual (R$)</label><input type="number" id="mbSalarioAtual" step="0.01" placeholder="0,00"></div>
-      <div class="field"><label>Salário anterior (antes do último aumento)</label><input type="number" id="mbSalarioAnterior" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Salário atual (R$)</label><input type="text" inputmode="decimal" id="mbSalarioAtual" placeholder="Ex: 3500,00"></div>
+      <div class="field"><label>Salário anterior (antes do último aumento)</label><input type="text" inputmode="decimal" id="mbSalarioAnterior" placeholder="Ex: 3200,00"></div>
     </div>
     <div class="field"><label>Data da última movimentação</label><input type="date" id="mbDataMovimentacao"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
@@ -515,6 +540,35 @@
   </div>
 </div>
 
+<!-- ================= MODAL PROJETO ================= -->
+<div class="modalBg" id="modalProjeto">
+  <div class="modal">
+    <div class="modalHead"><h3 id="modalProjetoTitle">Novo projeto</h3><button class="xClose" onclick="closeModal('modalProjeto')">✕</button></div>
+    <input type="hidden" id="prjId">
+    <div class="field"><label>Colaborador</label><select id="prjMembro"></select></div>
+    <div class="field"><label>Nome do projeto</label><input type="text" id="prjNome" placeholder="Ex: BI de rotas ADAMA"></div>
+    <div class="field">
+      <label>Status</label>
+      <select id="prjStatus">
+        <option value="planejado">Planejado</option>
+        <option value="em_andamento">Em andamento</option>
+        <option value="atrasado">Atrasado</option>
+        <option value="concluido">Concluído</option>
+      </select>
+    </div>
+    <div class="field"><label>Andamento (como está agora)</label><textarea id="prjAndamento" rows="3" placeholder="Ex: 60% concluído, falta integrar com o Power BI"></textarea></div>
+    <div class="row2">
+      <div class="field"><label>Data de entrega</label><input type="date" id="prjDataEntrega"></div>
+      <div class="field"><label>Próxima reunião sobre isso</label><input type="date" id="prjProximaReuniao"></div>
+    </div>
+    <div class="field"><label>Próxima etapa</label><textarea id="prjProximaEtapa" rows="2" placeholder="Ex: Validar com o cliente antes de fechar"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="btn btn-primary" style="flex:1" onclick="salvarProjeto()">Salvar</button>
+      <button class="btn btn-danger btn-sm" id="btnDelProjeto" style="display:none" onclick="excluirProjeto()">Excluir</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ======================= CONFIG SUPABASE ======================= */
 const SUPABASE_URL = "https://ezivaaocpazhonktehra.supabase.co";
@@ -526,7 +580,7 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', pilares: [], marcos: [], user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', pilares: [], marcos: [], projetos: [], user: null };
 let impactoSel = 'medio';
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
@@ -550,6 +604,7 @@ function goView(v){
   if(v==='equipe') renderEquipe();
   if(v==='reunioes') renderReunioesView();
   if(v==='acoes') renderAcoes();
+  if(v==='projetos') renderProjetos();
   if(v==='pontuacao') renderPontuacaoView();
   if(v==='cultura') document.getElementById('culturaTexto').value = STATE.cultura || '';
   if(v==='meudesenvolvimento') renderMeuDesenvolvimento();
@@ -558,6 +613,17 @@ function goView(v){
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
+function parseMoeda(str){
+  if(!str) return null;
+  str = String(str).trim();
+  if(str==='') return null;
+  if(str.includes(',')){ str = str.replace(/\./g,'').replace(',', '.'); }
+  const v = parseFloat(str);
+  return isNaN(v) ? null : v;
+}
+function formatarMoedaInput(v){
+  return Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
 function fmtDate(d){ if(!d) return '—'; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
 
 function scoreMembro(membroId){
@@ -605,14 +671,15 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt, cu, pl, mc] = await Promise.all([
+  const [eq, re, ac, pt, cu, pl, mc, pj] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
     sb.from('fp_gestao_pontuacoes').select('*').order('data_registro', {ascending:false}),
     sb.from('fp_gestao_cultura').select('*').maybeSingle(),
     sb.from('fp_gestao_meus_pilares').select('*').order('nome'),
-    sb.from('fp_gestao_meus_marcos').select('*').order('data_marco', {ascending:false})
+    sb.from('fp_gestao_meus_marcos').select('*').order('data_marco', {ascending:false}),
+    sb.from('fp_gestao_projetos').select('*').order('created_at', {ascending:false})
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
@@ -622,6 +689,7 @@ async function carregarTudo(){
   STATE.cultura = cu.data ? cu.data.texto : '';
   STATE.pilares = pl.data || [];
   STATE.marcos = mc.data || [];
+  STATE.projetos = pj.data || [];
   fillMembroSelects();
 }
 
@@ -641,6 +709,8 @@ function fillMembroSelects(){
   document.getElementById('reMembro').innerHTML = opts;
   document.getElementById('ptMembro').innerHTML = opts;
   document.getElementById('filtroAcoesMembro').innerHTML = '<option value="">Todos colaboradores</option>' + opts;
+  document.getElementById('prjMembro').innerHTML = opts;
+  document.getElementById('filtroProjetosMembro').innerHTML = '<option value="">Todos colaboradores</option>' + opts;
 }
 
 /* ======================= INÍCIO ======================= */
@@ -738,8 +808,8 @@ function openMembroModal(id){
     document.getElementById('mbObjetivo').value = m.objetivo || '';
     document.getElementById('mbPercepcao').value = m.percepcao_inicial || '';
     document.getElementById('mbObs').value = m.observacoes || '';
-    document.getElementById('mbSalarioAtual').value = m.salario_atual || '';
-    document.getElementById('mbSalarioAnterior').value = m.salario_anterior || '';
+    document.getElementById('mbSalarioAtual').value = m.salario_atual != null ? formatarMoedaInput(m.salario_atual) : '';
+    document.getElementById('mbSalarioAnterior').value = m.salario_anterior != null ? formatarMoedaInput(m.salario_anterior) : '';
     document.getElementById('mbDataMovimentacao').value = m.data_ultima_movimentacao || '';
     document.getElementById('btnDelMembro').style.display = 'inline-block';
   } else {
@@ -759,8 +829,8 @@ async function salvarMembro(){
     objetivo: document.getElementById('mbObjetivo').value.trim(),
     percepcao_inicial: document.getElementById('mbPercepcao').value.trim(),
     observacoes: document.getElementById('mbObs').value.trim(),
-    salario_atual: document.getElementById('mbSalarioAtual').value ? parseFloat(document.getElementById('mbSalarioAtual').value) : null,
-    salario_anterior: document.getElementById('mbSalarioAnterior').value ? parseFloat(document.getElementById('mbSalarioAnterior').value) : null,
+    salario_atual: parseMoeda(document.getElementById('mbSalarioAtual').value),
+    salario_anterior: parseMoeda(document.getElementById('mbSalarioAnterior').value),
     data_ultima_movimentacao: document.getElementById('mbDataMovimentacao').value || null
   };
   if(!payload.nome){ toast('Informe o nome.', true); return; }
@@ -956,6 +1026,108 @@ async function mudarStatusAcao(id, status){
   renderAcoes(); renderInicio();
 }
 
+/* ======================= PROJETOS ======================= */
+const STATUS_PROJETO_LABEL = { planejado:'Planejado', em_andamento:'Em andamento', atrasado:'Atrasado', concluido:'Concluído' };
+const STATUS_PROJETO_COR = { planejado:'var(--blue)', em_andamento:'var(--amber)', atrasado:'var(--red)', concluido:'var(--green)' };
+
+function renderProjetos(){
+  const membroF = document.getElementById('filtroProjetosMembro').value;
+  const statusF = document.getElementById('filtroProjetosStatus').value;
+  let lista = STATE.projetos.slice();
+  if(membroF) lista = lista.filter(p=>p.membro_id===membroF);
+  if(statusF) lista = lista.filter(p=>p.status===statusF);
+
+  const wrap = document.getElementById('projetosLista');
+  if(lista.length===0){ wrap.innerHTML = emptyState('Nenhum projeto cadastrado ainda.'); return; }
+
+  wrap.innerHTML = lista.map(p=>{
+    const m = STATE.equipe.find(x=>x.id===p.membro_id);
+    const cor = STATUS_PROJETO_COR[p.status] || 'var(--text-dim)';
+    return `
+    <div class="memberCard" style="cursor:pointer;" onclick="openProjetoModal('${p.id}')">
+      <div class="andon" style="background:${cor};"></div>
+      <div class="mcTop">
+        <div><div class="mcName">${p.nome}</div><div class="mcCargo">${m? m.nome : '—'}</div></div>
+        <span class="badge" style="background:${cor}22;color:${cor};">${STATUS_PROJETO_LABEL[p.status]}</span>
+      </div>
+      ${p.andamento ? `<div class="mcObj">${p.andamento}</div>` : ''}
+      <div class="mcMeta" style="margin-top:8px;">
+        <span>📅 Entrega: ${p.data_entrega? fmtDate(p.data_entrega) : '—'}</span>
+        <span>🗓 Próx. reunião: ${p.proxima_reuniao? fmtDate(p.proxima_reuniao) : '—'}</span>
+      </div>
+      ${p.proxima_etapa ? `<div class="mcObj">➡️ ${p.proxima_etapa}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function openProjetoModal(id){
+  document.getElementById('prjId').value = id || '';
+  if(id){
+    const p = STATE.projetos.find(x=>x.id===id);
+    document.getElementById('modalProjetoTitle').textContent = 'Editar projeto';
+    document.getElementById('prjMembro').value = p.membro_id;
+    document.getElementById('prjNome').value = p.nome || '';
+    document.getElementById('prjStatus').value = p.status || 'em_andamento';
+    document.getElementById('prjAndamento').value = p.andamento || '';
+    document.getElementById('prjDataEntrega').value = p.data_entrega || '';
+    document.getElementById('prjProximaReuniao').value = p.proxima_reuniao || '';
+    document.getElementById('prjProximaEtapa').value = p.proxima_etapa || '';
+    document.getElementById('btnDelProjeto').style.display = 'inline-block';
+  } else {
+    document.getElementById('modalProjetoTitle').textContent = 'Novo projeto';
+    ['prjNome','prjAndamento','prjDataEntrega','prjProximaReuniao','prjProximaEtapa'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('prjStatus').value = 'em_andamento';
+    document.getElementById('btnDelProjeto').style.display = 'none';
+  }
+  openModal('modalProjeto');
+}
+
+async function salvarProjeto(){
+  const id = document.getElementById('prjId').value;
+  const payload = {
+    membro_id: document.getElementById('prjMembro').value,
+    nome: document.getElementById('prjNome').value.trim(),
+    status: document.getElementById('prjStatus').value,
+    andamento: document.getElementById('prjAndamento').value.trim(),
+    data_entrega: document.getElementById('prjDataEntrega').value || null,
+    proxima_reuniao: document.getElementById('prjProximaReuniao').value || null,
+    proxima_etapa: document.getElementById('prjProximaEtapa').value.trim(),
+    updated_at: new Date().toISOString()
+  };
+  if(!payload.nome){ toast('Informe o nome do projeto.', true); return; }
+  if(!payload.membro_id){ toast('Selecione o colaborador.', true); return; }
+  let error;
+  if(id){ ({error} = await sb.from('fp_gestao_projetos').update(payload).eq('id', id)); }
+  else { ({error} = await sb.from('fp_gestao_projetos').insert(payload)); }
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalProjeto');
+  await carregarTudo();
+  renderProjetos();
+  toast('Projeto salvo.');
+}
+
+async function excluirProjeto(){
+  const id = document.getElementById('prjId').value;
+  if(!confirm('Excluir este projeto?')) return;
+  const { error } = await sb.from('fp_gestao_projetos').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  closeModal('modalProjeto');
+  await carregarTudo();
+  renderProjetos();
+  toast('Projeto excluído.');
+}
+
+function renderProjetosEntregues(){
+  const wrap = document.getElementById('projetosEntreguesLista');
+  const concluidos = STATE.projetos.filter(p=>p.status==='concluido');
+  if(concluidos.length===0){ wrap.innerHTML = emptyState('Nenhum projeto concluído registrado ainda.'); return; }
+  wrap.innerHTML = `<table><tr><th>Projeto</th><th>Colaborador</th><th>Entregue em</th></tr>` +
+    concluidos.map(p=>{
+      const m = STATE.equipe.find(x=>x.id===p.membro_id);
+      return `<tr><td>${p.nome}</td><td>${m? m.nome : '—'}</td><td class="mono">${p.data_entrega? fmtDate(p.data_entrega) : '—'}</td></tr>`;
+    }).join('') + `</table>`;
+}
+
 /* ======================= PONTUAÇÃO ======================= */
 function openPontuacaoModal(){
   document.getElementById('ptData').value = todayISO();
@@ -1051,14 +1223,18 @@ function renderMeuDesenvolvimento(){
   }
 
   const wrapM = document.getElementById('marcosLista');
-  if(STATE.marcos.length===0){ wrapM.innerHTML = emptyState('Nenhum marco registrado ainda.'); return; }
-  wrapM.innerHTML = `<table><tr><th>Data</th><th>Marco</th><th>Impacto</th><th>Quem viu</th></tr>` +
-    STATE.marcos.map(m=>`<tr>
-      <td class="mono">${fmtDate(m.data_marco)}</td>
-      <td>${m.marco}</td>
-      <td><span class="badge ${m.impacto==='alto'?'negativa':m.impacto==='medio'?'pendente':'concluido'}" style="${m.impacto==='alto'?'background:rgba(232,93,93,.15);color:var(--red);':m.impacto==='medio'?'background:rgba(242,169,59,.15);color:var(--amber);':'background:rgba(63,178,127,.15);color:var(--green);'}">${m.impacto==='alto'?'Alto':m.impacto==='medio'?'Médio':'Baixo'}</span></td>
-      <td style="color:var(--text-dim)">${m.quem_viu||''}</td>
-    </tr>`).join('') + `</table>`;
+  if(STATE.marcos.length===0){ wrapM.innerHTML = emptyState('Nenhum marco registrado ainda.'); }
+  else {
+    wrapM.innerHTML = `<table><tr><th>Data</th><th>Marco</th><th>Impacto</th><th>Quem viu</th></tr>` +
+      STATE.marcos.map(m=>`<tr>
+        <td class="mono">${fmtDate(m.data_marco)}</td>
+        <td>${m.marco}</td>
+        <td><span class="badge ${m.impacto==='alto'?'negativa':m.impacto==='medio'?'pendente':'concluido'}" style="${m.impacto==='alto'?'background:rgba(232,93,93,.15);color:var(--red);':m.impacto==='medio'?'background:rgba(242,169,59,.15);color:var(--amber);':'background:rgba(63,178,127,.15);color:var(--green);'}">${m.impacto==='alto'?'Alto':m.impacto==='medio'?'Médio':'Baixo'}</span></td>
+        <td style="color:var(--text-dim)">${m.quem_viu||''}</td>
+      </tr>`).join('') + `</table>`;
+  }
+
+  renderProjetosEntregues();
 }
 
 function openPilarModal(id){
