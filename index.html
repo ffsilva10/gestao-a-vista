@@ -152,6 +152,10 @@
   .barFill{width:100%;border-radius:5px 5px 0 0;transition:height .4s ease;min-height:3px;}
   .barVal{font-family:'JetBrains Mono';font-size:12px;font-weight:700;margin-bottom:4px;}
   .barLbl{font-size:10.5px;color:var(--text-dim);margin-top:8px;text-align:center;}
+  .blurVal{filter:blur(6px);transition:filter .15s;user-select:none;}
+  .blurVal.show{filter:blur(0);}
+  .eyeBtn{background:none;border:none;color:var(--text-faint);cursor:pointer;padding:2px 4px;font-size:13px;line-height:1;}
+  .eyeBtn:hover{color:var(--text);}
 
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#242a32;border:1px solid var(--line);
     color:var(--text);padding:11px 18px;border-radius:8px;font-size:13px;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;
@@ -394,6 +398,14 @@
       </div>
 
       <div class="panel reportControls">
+        <div class="field">
+          <label>Período rápido</label>
+          <div class="intensityRow">
+            <div class="intBtn sel-baixa on" id="prMes" onclick="setPeriodoRapido('mes')">Mensal</div>
+            <div class="intBtn sel-media" id="prTrim" onclick="setPeriodoRapido('trimestre')">Trimestral</div>
+            <div class="intBtn sel-alta" id="prCustom" onclick="setPeriodoRapido('custom')">Personalizado</div>
+          </div>
+        </div>
         <div class="row2">
           <div class="field"><label>Data início</label><input type="date" id="repInicio"></div>
           <div class="field"><label>Data fim</label><input type="date" id="repFim"></div>
@@ -431,6 +443,11 @@
     <div class="field"><label>Objetivo / plano de desenvolvimento</label><textarea id="mbObjetivo" rows="3"></textarea></div>
     <div class="field"><label>Minha percepção (pontos fortes, a desenvolver, postura, apresentação)</label><textarea id="mbPercepcao" rows="4" placeholder="Sua análise inicial sobre o colaborador — a IA usa isso junto com as atas de reunião pra sugerir o perfil dele e o alinhamento com a cultura"></textarea></div>
     <div class="field"><label>Observações gerais</label><textarea id="mbObs" rows="3"></textarea></div>
+    <div class="row2">
+      <div class="field"><label>Salário atual (R$)</label><input type="number" id="mbSalarioAtual" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Salário anterior (antes do último aumento)</label><input type="number" id="mbSalarioAnterior" step="0.01" placeholder="0,00"></div>
+    </div>
+    <div class="field"><label>Data da última movimentação</label><input type="date" id="mbDataMovimentacao"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button class="btn btn-primary" style="flex:1" onclick="salvarMembro()">Salvar</button>
       <button class="btn btn-danger btn-sm" id="btnDelMembro" style="display:none" onclick="excluirMembro()">Desativar</button>
@@ -681,11 +698,32 @@ function renderEquipe(){
       ${m.perfil_atual ? `<div class="mcMeta" style="margin-top:8px;"><span class="badge" style="background:rgba(76,141,255,.15);color:var(--blue);">🧩 ${m.perfil_atual}</span>${m.alinhamento_cultural ? ` <span class="badge" style="background:rgba(63,178,127,.12);color:var(--green);">${m.alinhamento_cultural}</span>` : ''}</div>` : ''}
       <div class="mcObj">${m.objetivo ? m.objetivo : '<span style="color:var(--text-faint)">Sem objetivo definido</span>'}</div>
       ${m.observacoes ? `<div class="mcObj">📌 ${m.observacoes}</div>` : ''}
+      ${blocoSalario(m)}
       <div class="mcActions">
         <button class="btn btn-ghost btn-sm" onclick="openMembroModal('${m.id}')">Editar</button>
       </div>
     </div>`;
   }).join('');
+}
+
+function blocoSalario(m){
+  if(!m.salario_atual) return '';
+  const fmt = v => v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+  let pctHtml = '';
+  if(m.salario_anterior && m.salario_anterior > 0){
+    const pct = ((m.salario_atual - m.salario_anterior) / m.salario_anterior) * 100;
+    const cor = pct > 0 ? 'var(--green)' : pct < 0 ? 'var(--red)' : 'var(--text-dim)';
+    pctHtml = `<span class="mono blurVal" style="color:${cor};font-weight:700;">${pct>0?'+':''}${pct.toFixed(1)}%</span>`;
+  }
+  return `
+  <div class="mcObj" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>💰 <span class="blurVal">${fmt(m.salario_atual)}</span>${m.data_ultima_movimentacao ? ` <span style="color:var(--text-faint)">· desde ${fmtDate(m.data_ultima_movimentacao)}</span>` : ''}</span>
+    <span style="display:flex;align-items:center;gap:6px;">${pctHtml}<button class="eyeBtn" onclick="toggleBlur(this)" title="Mostrar/ocultar">👁️</button></span>
+  </div>`;
+}
+function toggleBlur(btn){
+  const container = btn.closest('.mcObj');
+  container.querySelectorAll('.blurVal').forEach(el=>el.classList.toggle('show'));
 }
 
 function openMembroModal(id){
@@ -699,10 +737,13 @@ function openMembroModal(id){
     document.getElementById('mbObjetivo').value = m.objetivo || '';
     document.getElementById('mbPercepcao').value = m.percepcao_inicial || '';
     document.getElementById('mbObs').value = m.observacoes || '';
+    document.getElementById('mbSalarioAtual').value = m.salario_atual || '';
+    document.getElementById('mbSalarioAnterior').value = m.salario_anterior || '';
+    document.getElementById('mbDataMovimentacao').value = m.data_ultima_movimentacao || '';
     document.getElementById('btnDelMembro').style.display = 'inline-block';
   } else {
     document.getElementById('modalMembroTitle').textContent = 'Novo colaborador';
-    ['mbNome','mbCargo','mbAdmissao','mbObjetivo','mbPercepcao','mbObs'].forEach(f=>document.getElementById(f).value='');
+    ['mbNome','mbCargo','mbAdmissao','mbObjetivo','mbPercepcao','mbObs','mbSalarioAtual','mbSalarioAnterior','mbDataMovimentacao'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('btnDelMembro').style.display = 'none';
   }
   openModal('modalMembro');
@@ -716,7 +757,10 @@ async function salvarMembro(){
     data_admissao: document.getElementById('mbAdmissao').value || null,
     objetivo: document.getElementById('mbObjetivo').value.trim(),
     percepcao_inicial: document.getElementById('mbPercepcao').value.trim(),
-    observacoes: document.getElementById('mbObs').value.trim()
+    observacoes: document.getElementById('mbObs').value.trim(),
+    salario_atual: document.getElementById('mbSalarioAtual').value ? parseFloat(document.getElementById('mbSalarioAtual').value) : null,
+    salario_anterior: document.getElementById('mbSalarioAnterior').value ? parseFloat(document.getElementById('mbSalarioAnterior').value) : null,
+    data_ultima_movimentacao: document.getElementById('mbDataMovimentacao').value || null
   };
   if(!payload.nome){ toast('Informe o nome.', true); return; }
   let error;
@@ -1072,11 +1116,19 @@ async function salvarMarco(){
 function toggleRepMembroField(){
   document.getElementById('repMembroField').style.display = document.getElementById('repTipo').value==='individual' ? 'block' : 'none';
 }
-function initRelatoriosDefaults(){
+function setPeriodoRapido(tipo){
+  document.getElementById('prMes').classList.toggle('on', tipo==='mes');
+  document.getElementById('prTrim').classList.toggle('on', tipo==='trimestre');
+  document.getElementById('prCustom').classList.toggle('on', tipo==='custom');
+  if(tipo==='custom') return;
   const hoje = new Date();
-  const trimAtras = new Date(hoje.getFullYear(), hoje.getMonth()-3, hoje.getDate());
-  document.getElementById('repInicio').value = trimAtras.toISOString().slice(0,10);
+  const meses = tipo==='mes' ? 1 : 3;
+  const inicio = new Date(hoje.getFullYear(), hoje.getMonth()-meses, hoje.getDate());
+  document.getElementById('repInicio').value = inicio.toISOString().slice(0,10);
   document.getElementById('repFim').value = todayISO();
+}
+function initRelatoriosDefaults(){
+  setPeriodoRapido('mes');
   document.getElementById('repMembro').innerHTML = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
 }
 
@@ -1096,7 +1148,7 @@ function blocoRelatorioMembro(membro, ini, fim){
   return `
   <div class="reportPage">
     <div class="repHead">
-      <div><h2>${membro.nome}</h2><div class="repSub">${membro.cargo||''} · Fechamento de Quarter</div></div>
+      <div><h2>${membro.nome}</h2><div class="repSub">${membro.cargo||''} · Fechamento de período</div></div>
       <div class="repPeriodo"><b>${fmtDate(ini)} — ${fmtDate(fim)}</b>Período avaliado</div>
     </div>
     <div class="repKpis">
@@ -1141,7 +1193,7 @@ function gerarRelatorio(){
     const capa = `
     <div class="reportPage">
       <div class="repHead">
-        <div><h2>Fechamento de Quarter — Time</h2><div class="repSub">Coordenação 4PL · ADAMA</div></div>
+        <div><h2>Fechamento de período — Time</h2><div class="repSub">Coordenação 4PL · ADAMA</div></div>
         <div class="repPeriodo"><b>${fmtDate(ini)} — ${fmtDate(fim)}</b>Período avaliado</div>
       </div>
       <table class="repRankTable">
