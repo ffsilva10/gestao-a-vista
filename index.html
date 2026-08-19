@@ -17,7 +17,7 @@
     --radius:10px;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
   h1,h2,h3,.disp{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase;}
   .mono{font-family:'JetBrains Mono',monospace;}
   a{color:inherit;}
@@ -96,6 +96,8 @@
   .mcActions{display:flex;gap:8px;margin-top:12px;}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;}
+  .tableWrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -20px;padding:0 20px;}
+  .tableWrap table{min-width:540px;}
   .panel + .panel{margin-top:14px;}
   .panel h3{font-size:14px;color:#fff;margin:0 0 12px;letter-spacing:.03em;}
 
@@ -136,6 +138,8 @@
     text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);}
   .tipoBtn.positiva.on{border-color:var(--green);color:var(--green);background:rgba(63,178,127,.1);}
   .tipoBtn.negativa.on{border-color:var(--red);color:var(--red);background:rgba(232,93,93,.1);}
+  .pessoaChip{padding:7px 12px;border-radius:20px;border:1px solid var(--line);background:var(--panel2);font-size:12.5px;color:var(--text-dim);cursor:pointer;user-select:none;}
+  .pessoaChip.on{border-color:var(--blue);color:var(--blue);background:rgba(76,141,255,.12);}
 
   .insightBox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-top:10px;font-size:13px;line-height:1.6;white-space:pre-wrap;}
   .insightBox h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--amber);margin:0 0 6px;font-family:'Inter';font-weight:700;}
@@ -172,7 +176,7 @@
   /* ---------- RELATÓRIO / IMPRESSÃO ---------- */
   .reportControls{max-width:640px;}
   #relatorioPreview{display:none;}
-  .reportPage{background:#fff;color:#1a2733;border-radius:10px;padding:34px 38px;margin-top:18px;max-width:820px;
+  .reportPage{background:#fff;color:#1a2733;border-radius:10px;padding:34px 38px;margin-top:18px;max-width:820px;overflow-x:auto;
     font-family:'Inter',sans-serif;box-shadow:0 4px 30px rgba(0,0,0,.35);}
   .reportPage + .reportPage{margin-top:26px;}
   .repHead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0F1F35;padding-bottom:14px;margin-bottom:18px;}
@@ -412,7 +416,7 @@
       </div>
 
       <div class="panel">
-        <h3>Projetos entregues pela minha gestão</h3>
+        <h3>Projetos da minha equipe</h3>
         <div id="projetosEntreguesLista" style="margin-top:10px;"></div>
       </div>
     </section>
@@ -545,21 +549,27 @@
   <div class="modal">
     <div class="modalHead"><h3 id="modalProjetoTitle">Novo projeto</h3><button class="xClose" onclick="closeModal('modalProjeto')">✕</button></div>
     <input type="hidden" id="prjId">
-    <div class="field"><label>Colaborador</label><select id="prjMembro"></select></div>
     <div class="field"><label>Nome do projeto</label><input type="text" id="prjNome" placeholder="Ex: BI de rotas ADAMA"></div>
+    <div class="row2">
+      <div class="field"><label>Setor envolvido</label><input type="text" id="prjSetor" placeholder="Ex: Faturamento, Operação"></div>
+      <div class="field">
+        <label>Status</label>
+        <select id="prjStatus">
+          <option value="planejado">Planejado</option>
+          <option value="em_andamento">Em andamento</option>
+          <option value="atrasado">Atrasado</option>
+          <option value="concluido">Concluído</option>
+        </select>
+      </div>
+    </div>
     <div class="field">
-      <label>Status</label>
-      <select id="prjStatus">
-        <option value="planejado">Planejado</option>
-        <option value="em_andamento">Em andamento</option>
-        <option value="atrasado">Atrasado</option>
-        <option value="concluido">Concluído</option>
-      </select>
+      <label>Pessoas envolvidas</label>
+      <div id="prjPessoasLista" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
     </div>
     <div class="field"><label>Andamento (como está agora)</label><textarea id="prjAndamento" rows="3" placeholder="Ex: 60% concluído, falta integrar com o Power BI"></textarea></div>
     <div class="row2">
-      <div class="field"><label>Data de entrega</label><input type="date" id="prjDataEntrega"></div>
-      <div class="field"><label>Próxima reunião sobre isso</label><input type="date" id="prjProximaReuniao"></div>
+      <div class="field"><label>Próxima overview</label><input type="date" id="prjProximaReuniao"></div>
+      <div class="field"><label>Prazo de conclusão final</label><input type="date" id="prjDataEntrega"></div>
     </div>
     <div class="field"><label>Próxima etapa</label><textarea id="prjProximaEtapa" rows="2" placeholder="Ex: Validar com o cliente antes de fechar"></textarea></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
@@ -709,7 +719,6 @@ function fillMembroSelects(){
   document.getElementById('reMembro').innerHTML = opts;
   document.getElementById('ptMembro').innerHTML = opts;
   document.getElementById('filtroAcoesMembro').innerHTML = '<option value="">Todos colaboradores</option>' + opts;
-  document.getElementById('prjMembro').innerHTML = opts;
   document.getElementById('filtroProjetosMembro').innerHTML = '<option value="">Todos colaboradores</option>' + opts;
 }
 
@@ -741,11 +750,11 @@ function renderInicio(){
   const proximas = STATE.reunioes.filter(r=>r.proxima_reuniao).sort((a,b)=>a.proxima_reuniao.localeCompare(b.proxima_reuniao));
   if(proximas.length===0){ prox.innerHTML = `<p style="color:var(--text-faint);font-size:13px;">Nenhuma próxima reunião combinada ainda.</p>`; }
   else {
-    prox.innerHTML = `<table><tr><th>Colaborador</th><th>Data combinada</th></tr>` +
+    prox.innerHTML = `<div class="tableWrap"><table><tr><th>Colaborador</th><th>Data combinada</th></tr>` +
       proximas.map(r=>{
         const m = STATE.equipe.find(x=>x.id===r.membro_id);
         return `<tr><td>${m? m.nome : '—'}</td><td class="mono">${fmtDate(r.proxima_reuniao)}</td></tr>`;
-      }).join('') + `</table>`;
+      }).join('') + `</table></div>`;
   }
 }
 
@@ -1001,7 +1010,7 @@ function renderAcoes(){
   const wrap = document.getElementById('acoesLista');
   if(lista.length===0){ wrap.innerHTML = emptyState('Nenhuma ação encontrada.'); return; }
 
-  wrap.innerHTML = `<table><tr><th>Colaborador</th><th>Ação combinada</th><th>Status</th><th></th></tr>` +
+  wrap.innerHTML = `<div class="tableWrap"><table><tr><th>Colaborador</th><th>Ação combinada</th><th>Status</th><th></th></tr>` +
     lista.map(a=>{
       const m = STATE.equipe.find(x=>x.id===a.membro_id);
       return `<tr>
@@ -1016,7 +1025,7 @@ function renderAcoes(){
           </select>
         </td>
       </tr>`;
-    }).join('') + `</table>`;
+    }).join('') + `</table></div>`;
 }
 
 async function mudarStatusAcao(id, status){
@@ -1029,35 +1038,54 @@ async function mudarStatusAcao(id, status){
 /* ======================= PROJETOS ======================= */
 const STATUS_PROJETO_LABEL = { planejado:'Planejado', em_andamento:'Em andamento', atrasado:'Atrasado', concluido:'Concluído' };
 const STATUS_PROJETO_COR = { planejado:'var(--blue)', em_andamento:'var(--amber)', atrasado:'var(--red)', concluido:'var(--green)' };
+let prjPessoasSel = [];
+
+function nomesPessoas(ids){
+  if(!ids || !ids.length) return '—';
+  return ids.map(id=>{ const m = STATE.equipe.find(x=>x.id===id); return m? m.nome : null; }).filter(Boolean).join(', ') || '—';
+}
 
 function renderProjetos(){
   const membroF = document.getElementById('filtroProjetosMembro').value;
   const statusF = document.getElementById('filtroProjetosStatus').value;
   let lista = STATE.projetos.slice();
-  if(membroF) lista = lista.filter(p=>p.membro_id===membroF);
+  if(membroF) lista = lista.filter(p=>(p.pessoas_envolvidas||[]).includes(membroF));
   if(statusF) lista = lista.filter(p=>p.status===statusF);
 
   const wrap = document.getElementById('projetosLista');
   if(lista.length===0){ wrap.innerHTML = emptyState('Nenhum projeto cadastrado ainda.'); return; }
 
   wrap.innerHTML = lista.map(p=>{
-    const m = STATE.equipe.find(x=>x.id===p.membro_id);
     const cor = STATUS_PROJETO_COR[p.status] || 'var(--text-dim)';
     return `
     <div class="memberCard" style="cursor:pointer;" onclick="openProjetoModal('${p.id}')">
       <div class="andon" style="background:${cor};"></div>
       <div class="mcTop">
-        <div><div class="mcName">${p.nome}</div><div class="mcCargo">${m? m.nome : '—'}</div></div>
+        <div><div class="mcName">${p.nome}</div><div class="mcCargo">${p.setor || 'Setor não informado'}</div></div>
         <span class="badge" style="background:${cor}22;color:${cor};">${STATUS_PROJETO_LABEL[p.status]}</span>
       </div>
+      <div class="mcObj">👥 ${nomesPessoas(p.pessoas_envolvidas)}</div>
       ${p.andamento ? `<div class="mcObj">${p.andamento}</div>` : ''}
       <div class="mcMeta" style="margin-top:8px;">
-        <span>📅 Entrega: ${p.data_entrega? fmtDate(p.data_entrega) : '—'}</span>
-        <span>🗓 Próx. reunião: ${p.proxima_reuniao? fmtDate(p.proxima_reuniao) : '—'}</span>
+        <span>🗓 Próx. overview: ${p.proxima_reuniao? fmtDate(p.proxima_reuniao) : '—'}</span>
+        <span>🏁 Conclusão: ${p.data_entrega? fmtDate(p.data_entrega) : '—'}</span>
       </div>
       ${p.proxima_etapa ? `<div class="mcObj">➡️ ${p.proxima_etapa}</div>` : ''}
     </div>`;
   }).join('');
+}
+
+function renderPessoasChips(selecionados){
+  const wrap = document.getElementById('prjPessoasLista');
+  if(STATE.equipe.length===0){ wrap.innerHTML = `<span style="color:var(--text-faint);font-size:12px;">Cadastre colaboradores primeiro.</span>`; return; }
+  wrap.innerHTML = STATE.equipe.map(m=>
+    `<span class="pessoaChip ${selecionados.includes(m.id)?'on':''}" data-id="${m.id}" onclick="togglePessoaChip('${m.id}')">${m.nome}</span>`
+  ).join('');
+}
+function togglePessoaChip(id){
+  const idx = prjPessoasSel.indexOf(id);
+  if(idx>=0) prjPessoasSel.splice(idx,1); else prjPessoasSel.push(id);
+  renderPessoasChips(prjPessoasSel);
 }
 
 function openProjetoModal(id){
@@ -1065,37 +1093,40 @@ function openProjetoModal(id){
   if(id){
     const p = STATE.projetos.find(x=>x.id===id);
     document.getElementById('modalProjetoTitle').textContent = 'Editar projeto';
-    document.getElementById('prjMembro').value = p.membro_id;
     document.getElementById('prjNome').value = p.nome || '';
+    document.getElementById('prjSetor').value = p.setor || '';
     document.getElementById('prjStatus').value = p.status || 'em_andamento';
     document.getElementById('prjAndamento').value = p.andamento || '';
     document.getElementById('prjDataEntrega').value = p.data_entrega || '';
     document.getElementById('prjProximaReuniao').value = p.proxima_reuniao || '';
     document.getElementById('prjProximaEtapa').value = p.proxima_etapa || '';
+    prjPessoasSel = (p.pessoas_envolvidas || []).slice();
     document.getElementById('btnDelProjeto').style.display = 'inline-block';
   } else {
     document.getElementById('modalProjetoTitle').textContent = 'Novo projeto';
-    ['prjNome','prjAndamento','prjDataEntrega','prjProximaReuniao','prjProximaEtapa'].forEach(f=>document.getElementById(f).value='');
+    ['prjNome','prjSetor','prjAndamento','prjDataEntrega','prjProximaReuniao','prjProximaEtapa'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('prjStatus').value = 'em_andamento';
+    prjPessoasSel = [];
     document.getElementById('btnDelProjeto').style.display = 'none';
   }
+  renderPessoasChips(prjPessoasSel);
   openModal('modalProjeto');
 }
 
 async function salvarProjeto(){
   const id = document.getElementById('prjId').value;
   const payload = {
-    membro_id: document.getElementById('prjMembro').value,
     nome: document.getElementById('prjNome').value.trim(),
+    setor: document.getElementById('prjSetor').value.trim(),
     status: document.getElementById('prjStatus').value,
     andamento: document.getElementById('prjAndamento').value.trim(),
+    pessoas_envolvidas: prjPessoasSel,
     data_entrega: document.getElementById('prjDataEntrega').value || null,
     proxima_reuniao: document.getElementById('prjProximaReuniao').value || null,
     proxima_etapa: document.getElementById('prjProximaEtapa').value.trim(),
     updated_at: new Date().toISOString()
   };
   if(!payload.nome){ toast('Informe o nome do projeto.', true); return; }
-  if(!payload.membro_id){ toast('Selecione o colaborador.', true); return; }
   let error;
   if(id){ ({error} = await sb.from('fp_gestao_projetos').update(payload).eq('id', id)); }
   else { ({error} = await sb.from('fp_gestao_projetos').insert(payload)); }
@@ -1119,13 +1150,23 @@ async function excluirProjeto(){
 
 function renderProjetosEntregues(){
   const wrap = document.getElementById('projetosEntreguesLista');
-  const concluidos = STATE.projetos.filter(p=>p.status==='concluido');
-  if(concluidos.length===0){ wrap.innerHTML = emptyState('Nenhum projeto concluído registrado ainda.'); return; }
-  wrap.innerHTML = `<table><tr><th>Projeto</th><th>Colaborador</th><th>Entregue em</th></tr>` +
-    concluidos.map(p=>{
-      const m = STATE.equipe.find(x=>x.id===p.membro_id);
-      return `<tr><td>${p.nome}</td><td>${m? m.nome : '—'}</td><td class="mono">${p.data_entrega? fmtDate(p.data_entrega) : '—'}</td></tr>`;
-    }).join('') + `</table>`;
+  if(STATE.projetos.length===0){ wrap.innerHTML = emptyState('Nenhum projeto da equipe cadastrado ainda.'); return; }
+  const ordenados = STATE.projetos.slice().sort((a,b)=>{
+    if(a.status==='concluido' && b.status!=='concluido') return -1;
+    if(b.status==='concluido' && a.status!=='concluido') return 1;
+    return 0;
+  });
+  wrap.innerHTML = `<div class="tableWrap"><table><tr><th>Projeto</th><th>Setor</th><th>Pessoas</th><th>Status</th><th>Conclusão</th></tr>` +
+    ordenados.map(p=>{
+      const cor = STATUS_PROJETO_COR[p.status] || 'var(--text-dim)';
+      return `<tr>
+        <td>${p.nome}</td>
+        <td style="color:var(--text-dim)">${p.setor||'—'}</td>
+        <td style="color:var(--text-dim)">${nomesPessoas(p.pessoas_envolvidas)}</td>
+        <td><span class="badge" style="background:${cor}22;color:${cor};">${STATUS_PROJETO_LABEL[p.status]}</span></td>
+        <td class="mono">${p.data_entrega? fmtDate(p.data_entrega) : '—'}</td>
+      </tr>`;
+    }).join('') + `</table></div>`;
 }
 
 /* ======================= PONTUAÇÃO ======================= */
@@ -1169,7 +1210,7 @@ function renderPontuacaoView(){
   renderChartAcumulado();
   const wrap = document.getElementById('historicoPontuacoes');
   if(STATE.pontuacoes.length===0){ wrap.innerHTML = emptyState('Nenhuma pontuação registrada ainda.'); return; }
-  wrap.innerHTML = `<table><tr><th>Colaborador</th><th>Data</th><th>Tipo</th><th>Intens.</th><th>Pontos</th><th>Descrição</th></tr>` +
+  wrap.innerHTML = `<div class="tableWrap"><table><tr><th>Colaborador</th><th>Data</th><th>Tipo</th><th>Intens.</th><th>Pontos</th><th>Descrição</th></tr>` +
     STATE.pontuacoes.map(p=>{
       const m = STATE.equipe.find(x=>x.id===p.membro_id);
       return `<tr>
@@ -1180,7 +1221,7 @@ function renderPontuacaoView(){
         <td class="mono" style="color:${p.pontos>0?'var(--green)':'var(--red)'}">${p.pontos>0?'+':''}${p.pontos}</td>
         <td style="color:var(--text-dim)">${p.descricao||''}</td>
       </tr>`;
-    }).join('') + `</table>`;
+    }).join('') + `</table></div>`;
 }
 
 function renderChartAcumulado(){
@@ -1225,13 +1266,13 @@ function renderMeuDesenvolvimento(){
   const wrapM = document.getElementById('marcosLista');
   if(STATE.marcos.length===0){ wrapM.innerHTML = emptyState('Nenhum marco registrado ainda.'); }
   else {
-    wrapM.innerHTML = `<table><tr><th>Data</th><th>Marco</th><th>Impacto</th><th>Quem viu</th></tr>` +
+    wrapM.innerHTML = `<div class="tableWrap"><table><tr><th>Data</th><th>Marco</th><th>Impacto</th><th>Quem viu</th></tr>` +
       STATE.marcos.map(m=>`<tr>
         <td class="mono">${fmtDate(m.data_marco)}</td>
         <td>${m.marco}</td>
         <td><span class="badge ${m.impacto==='alto'?'negativa':m.impacto==='medio'?'pendente':'concluido'}" style="${m.impacto==='alto'?'background:rgba(232,93,93,.15);color:var(--red);':m.impacto==='medio'?'background:rgba(242,169,59,.15);color:var(--amber);':'background:rgba(63,178,127,.15);color:var(--green);'}">${m.impacto==='alto'?'Alto':m.impacto==='medio'?'Médio':'Baixo'}</span></td>
         <td style="color:var(--text-dim)">${m.quem_viu||''}</td>
-      </tr>`).join('') + `</table>`;
+      </tr>`).join('') + `</table></div>`;
   }
 
   renderProjetosEntregues();
