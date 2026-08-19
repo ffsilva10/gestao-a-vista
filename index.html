@@ -208,6 +208,7 @@
     <div class="navItem" data-view="reunioes" onclick="goView('reunioes')">📝&nbsp; Reuniões</div>
     <div class="navItem" data-view="acoes" onclick="goView('acoes')">✅&nbsp; Ações</div>
     <div class="navItem" data-view="pontuacao" onclick="goView('pontuacao')">📊&nbsp; Pontuação</div>
+    <div class="navItem" data-view="cultura" onclick="goView('cultura')">🧭&nbsp; Cultura</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
@@ -314,6 +315,21 @@
       </div>
     </section>
 
+    <!-- ---------- CULTURA ---------- -->
+    <section class="view" id="view-cultura">
+      <div class="pageHead">
+        <div><h2>Cultura</h2><p>O objetivo de cultura a trilhar — usado pela IA pra avaliar alinhamento de cada colaborador</p></div>
+      </div>
+      <div class="panel">
+        <h3>Nossa cultura</h3>
+        <div class="field">
+          <label>Descreva os valores, comportamentos e padrão que a equipe deve seguir</label>
+          <textarea id="culturaTexto" rows="10" placeholder="Ex: proatividade, dono do problema, comunicação direta, postura profissional com o cliente, cumprir prazo combinado..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="salvarCultura()">Salvar cultura</button>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -328,6 +344,7 @@
     </div>
     <div class="field"><label>Data de admissão</label><input type="date" id="mbAdmissao"></div>
     <div class="field"><label>Objetivo / plano de desenvolvimento</label><textarea id="mbObjetivo" rows="3"></textarea></div>
+    <div class="field"><label>Minha percepção (pontos fortes, a desenvolver, postura, apresentação)</label><textarea id="mbPercepcao" rows="4" placeholder="Sua análise inicial sobre o colaborador — a IA usa isso junto com as atas de reunião pra sugerir o perfil dele e o alinhamento com a cultura"></textarea></div>
     <div class="field"><label>Observações gerais</label><textarea id="mbObs" rows="3"></textarea></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button class="btn btn-primary" style="flex:1" onclick="salvarMembro()">Salvar</button>
@@ -372,7 +389,7 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', user: null };
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
 /* ======================= HELPERS UI ======================= */
@@ -396,6 +413,7 @@ function goView(v){
   if(v==='reunioes') renderReunioesView();
   if(v==='acoes') renderAcoes();
   if(v==='pontuacao') renderPontuacaoView();
+  if(v==='cultura') document.getElementById('culturaTexto').value = STATE.cultura || '';
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -447,18 +465,31 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt] = await Promise.all([
+  const [eq, re, ac, pt, cu] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
-    sb.from('fp_gestao_pontuacoes').select('*').order('data_registro', {ascending:false})
+    sb.from('fp_gestao_pontuacoes').select('*').order('data_registro', {ascending:false}),
+    sb.from('fp_gestao_cultura').select('*').maybeSingle()
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
   STATE.reunioes = re.data || [];
   STATE.acoes = ac.data || [];
   STATE.pontuacoes = pt.data || [];
+  STATE.cultura = cu.data ? cu.data.texto : '';
   fillMembroSelects();
+}
+
+async function salvarCultura(){
+  const texto = document.getElementById('culturaTexto').value.trim();
+  const { data: existente } = await sb.from('fp_gestao_cultura').select('id').maybeSingle();
+  let error;
+  if(existente){ ({error} = await sb.from('fp_gestao_cultura').update({texto, updated_at: new Date().toISOString()}).eq('id', existente.id)); }
+  else { ({error} = await sb.from('fp_gestao_cultura').insert({texto})); }
+  if(error){ toast('Erro ao salvar cultura: ' + error.message, true); return; }
+  STATE.cultura = texto;
+  toast('Cultura salva.');
 }
 
 function fillMembroSelects(){
@@ -521,6 +552,7 @@ function renderEquipe(){
       <div class="mcTop">
         <div><div class="mcName">${m.nome}</div><div class="mcCargo">${m.cargo||''} ${m.data_admissao? '· desde '+fmtDate(m.data_admissao):''}</div></div>
       </div>
+      ${m.perfil_atual ? `<div class="mcMeta" style="margin-top:8px;"><span class="badge" style="background:rgba(76,141,255,.15);color:var(--blue);">🧩 ${m.perfil_atual}</span>${m.alinhamento_cultural ? ` <span class="badge" style="background:rgba(63,178,127,.12);color:var(--green);">${m.alinhamento_cultural}</span>` : ''}</div>` : ''}
       <div class="mcObj">${m.objetivo ? m.objetivo : '<span style="color:var(--text-faint)">Sem objetivo definido</span>'}</div>
       ${m.observacoes ? `<div class="mcObj">📌 ${m.observacoes}</div>` : ''}
       <div class="mcActions">
@@ -539,11 +571,12 @@ function openMembroModal(id){
     document.getElementById('mbCargo').value = m.cargo || '';
     document.getElementById('mbAdmissao').value = m.data_admissao || '';
     document.getElementById('mbObjetivo').value = m.objetivo || '';
+    document.getElementById('mbPercepcao').value = m.percepcao_inicial || '';
     document.getElementById('mbObs').value = m.observacoes || '';
     document.getElementById('btnDelMembro').style.display = 'inline-block';
   } else {
     document.getElementById('modalMembroTitle').textContent = 'Novo colaborador';
-    ['mbNome','mbCargo','mbAdmissao','mbObjetivo','mbObs'].forEach(f=>document.getElementById(f).value='');
+    ['mbNome','mbCargo','mbAdmissao','mbObjetivo','mbPercepcao','mbObs'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('btnDelMembro').style.display = 'none';
   }
   openModal('modalMembro');
@@ -556,6 +589,7 @@ async function salvarMembro(){
     cargo: document.getElementById('mbCargo').value.trim(),
     data_admissao: document.getElementById('mbAdmissao').value || null,
     objetivo: document.getElementById('mbObjetivo').value.trim(),
+    percepcao_inicial: document.getElementById('mbPercepcao').value.trim(),
     observacoes: document.getElementById('mbObs').value.trim()
   };
   if(!payload.nome){ toast('Informe o nome.', true); return; }
@@ -612,12 +646,17 @@ async function gerarInsights(){
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Gerando com IA...';
 
   try{
+    const historicoAnterior = STATE.reunioes.filter(r=>r.membro_id===membroId).slice(0,3).map(r=>r.insights).filter(Boolean);
+
     const { data: fnData, error } = await sb.functions.invoke('gestao-gerar-insights', {
       body: {
         transcricao,
         nome_membro: membro.nome,
         cargo_membro: membro.cargo,
         objetivo_membro: membro.objetivo,
+        percepcao_inicial: membro.percepcao_inicial,
+        cultura: STATE.cultura,
+        insights_anteriores: historicoAnterior,
         data_reuniao: data
       }
     });
@@ -626,6 +665,10 @@ async function gerarInsights(){
     insightsGerados = fnData;
     document.getElementById('outAta').textContent = fnData.ata || '';
     document.getElementById('outInsights').textContent = fnData.insights || '';
+    if(fnData.perfil_sugerido || fnData.alinhamento_cultural){
+      document.getElementById('outInsights').textContent +=
+        `\n\n🧩 Perfil sugerido: ${fnData.perfil_sugerido || '—'}\n🧭 Alinhamento cultural: ${fnData.alinhamento_cultural || '—'}`;
+    }
     document.getElementById('outProxReuniao').value = fnData.proxima_reuniao_sugerida || '';
     const acoesWrap = document.getElementById('outAcoes');
     const acoes = fnData.acoes || [];
@@ -658,6 +701,13 @@ async function salvarReuniao(){
   }).select().single();
 
   if(error){ toast('Erro ao salvar reunião: ' + error.message, true); return; }
+
+  if(insightsGerados.perfil_sugerido || insightsGerados.alinhamento_cultural){
+    await sb.from('fp_gestao_equipe').update({
+      perfil_atual: insightsGerados.perfil_sugerido || null,
+      alinhamento_cultural: insightsGerados.alinhamento_cultural || null
+    }).eq('id', membroId);
+  }
 
   const checks = document.querySelectorAll('#outAcoes input[type=checkbox]:checked');
   const acoesTexto = (insightsGerados.acoes || []);
