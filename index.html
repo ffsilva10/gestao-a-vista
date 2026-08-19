@@ -303,6 +303,7 @@
             <h4>Ações sugeridas</h4>
             <div id="outAcoes"></div>
           </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%;" onclick="copiarAta()">📋 Copiar ata (pra enviar ao colaborador)</button>
           <div class="row2" style="margin-top:10px;">
             <div class="field"><label>Próxima reunião sugerida</label><input type="date" id="outProxReuniao"></div>
             <div class="field" style="display:flex;align-items:flex-end;">
@@ -852,6 +853,27 @@ async function gerarInsights(){
   } finally {
     btn.disabled = false; btn.textContent = 'Confirmar e gerar ata com IA';
   }
+}
+
+function copiarAta(){
+  if(!insightsGerados){ toast('Gere a ata primeiro.', true); return; }
+  const membroId = document.getElementById('reMembro').value;
+  const membro = STATE.equipe.find(m=>m.id===membroId);
+  const data = document.getElementById('reData').value;
+  const acoes = (insightsGerados.acoes || []).map(a=>`- ${a}`).join('\n');
+  const texto = `📋 ATA DE REUNIÃO — ${membro? membro.nome : ''}
+Data: ${fmtDate(data)}
+
+${insightsGerados.ata || ''}
+
+AÇÕES COMBINADAS
+${acoes || 'Nenhuma ação registrada.'}
+
+${insightsGerados.proxima_reuniao_sugerida ? `Próxima reunião: ${fmtDate(insightsGerados.proxima_reuniao_sugerida)}` : ''}`;
+
+  navigator.clipboard.writeText(texto.trim())
+    .then(()=> toast('Ata copiada — já pode colar no WhatsApp ou e-mail.'))
+    .catch(()=> toast('Não consegui copiar automaticamente. Selecione o texto manualmente.', true));
 }
 
 async function salvarReuniao(){
