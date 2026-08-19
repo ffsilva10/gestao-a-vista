@@ -209,6 +209,7 @@
     <div class="navItem" data-view="acoes" onclick="goView('acoes')">✅&nbsp; Ações</div>
     <div class="navItem" data-view="pontuacao" onclick="goView('pontuacao')">📊&nbsp; Pontuação</div>
     <div class="navItem" data-view="cultura" onclick="goView('cultura')">🧭&nbsp; Cultura</div>
+    <div class="navItem" data-view="meudesenvolvimento" onclick="goView('meudesenvolvimento')">🎯&nbsp; Meu Desenvolvimento</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
@@ -330,6 +331,29 @@
       </div>
     </section>
 
+    <!-- ---------- MEU DESENVOLVIMENTO ---------- -->
+    <section class="view" id="view-meudesenvolvimento">
+      <div class="pageHead">
+        <div><h2>Meu Desenvolvimento</h2><p>Acompanhamento pessoal rumo à promoção — pilares e marcos com Gustavo e Tatiana</p></div>
+      </div>
+
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <h3 style="margin:0;">Pilares rumo à promoção</h3>
+          <button class="btn btn-ghost btn-sm" onclick="openPilarModal()">+ Pilar</button>
+        </div>
+        <div id="pilaresLista" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <h3 style="margin:0;">Marcos conquistados</h3>
+          <button class="btn btn-ghost btn-sm" onclick="openMarcoModal()">+ Marco</button>
+        </div>
+        <div id="marcosLista" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -378,6 +402,40 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ================= MODAL PILAR ================= -->
+<div class="modalBg" id="modalPilar">
+  <div class="modal">
+    <div class="modalHead"><h3 id="modalPilarTitle">Novo pilar</h3><button class="xClose" onclick="closeModal('modalPilar')">✕</button></div>
+    <input type="hidden" id="plId">
+    <div class="field"><label>Nome do pilar</label><input type="text" id="plNome" placeholder="Ex: Visibilidade"></div>
+    <div class="field"><label>% atual</label><input type="number" id="plPercentual" min="0" max="100" value="0"></div>
+    <div class="field"><label>Meta / o que falta</label><textarea id="plMeta" rows="3"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="btn btn-primary" style="flex:1" onclick="salvarPilar()">Salvar</button>
+      <button class="btn btn-danger btn-sm" id="btnDelPilar" style="display:none" onclick="excluirPilar()">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL MARCO ================= -->
+<div class="modalBg" id="modalMarco">
+  <div class="modal">
+    <div class="modalHead"><h3>Novo marco conquistado</h3><button class="xClose" onclick="closeModal('modalMarco')">✕</button></div>
+    <div class="field"><label>Data</label><input type="date" id="mcData"></div>
+    <div class="field"><label>Marco</label><textarea id="mcMarco" rows="2" placeholder="Ex: Material AG entregue antes do prazo"></textarea></div>
+    <div class="field">
+      <label>Impacto</label>
+      <div class="intensityRow">
+        <div class="intBtn sel-baixa" id="impBaixo" onclick="setImpacto('baixo')">Baixo</div>
+        <div class="intBtn sel-media" id="impMedio" onclick="setImpacto('medio')">Médio</div>
+        <div class="intBtn sel-alta" id="impAlto" onclick="setImpacto('alto')">Alto</div>
+      </div>
+    </div>
+    <div class="field"><label>Quem viu</label><input type="text" id="mcQuemViu" placeholder="Ex: Gustavo e Tatiana"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="salvarMarco()">Salvar marco</button>
+  </div>
+</div>
+
 <script>
 /* ======================= CONFIG SUPABASE ======================= */
 const SUPABASE_URL = "https://ezivaaocpazhonktehra.supabase.co";
@@ -389,7 +447,8 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', pilares: [], marcos: [], user: null };
+let impactoSel = 'medio';
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
 /* ======================= HELPERS UI ======================= */
@@ -414,6 +473,7 @@ function goView(v){
   if(v==='acoes') renderAcoes();
   if(v==='pontuacao') renderPontuacaoView();
   if(v==='cultura') document.getElementById('culturaTexto').value = STATE.cultura || '';
+  if(v==='meudesenvolvimento') renderMeuDesenvolvimento();
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -465,12 +525,14 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt, cu] = await Promise.all([
+  const [eq, re, ac, pt, cu, pl, mc] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
     sb.from('fp_gestao_pontuacoes').select('*').order('data_registro', {ascending:false}),
-    sb.from('fp_gestao_cultura').select('*').maybeSingle()
+    sb.from('fp_gestao_cultura').select('*').maybeSingle(),
+    sb.from('fp_gestao_meus_pilares').select('*').order('nome'),
+    sb.from('fp_gestao_meus_marcos').select('*').order('data_marco', {ascending:false})
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
@@ -478,6 +540,8 @@ async function carregarTudo(){
   STATE.acoes = ac.data || [];
   STATE.pontuacoes = pt.data || [];
   STATE.cultura = cu.data ? cu.data.texto : '';
+  STATE.pilares = pl.data || [];
+  STATE.marcos = mc.data || [];
   fillMembroSelects();
 }
 
@@ -835,6 +899,111 @@ function renderChartAcumulado(){
       <div class="barLbl">${d.nome}</div>
     </div>`;
   }).join('');
+}
+
+/* ======================= MEU DESENVOLVIMENTO ======================= */
+function renderMeuDesenvolvimento(){
+  const wrapP = document.getElementById('pilaresLista');
+  if(STATE.pilares.length===0){ wrapP.innerHTML = emptyState('Nenhum pilar cadastrado ainda.'); }
+  else {
+    wrapP.innerHTML = STATE.pilares.map(p=>{
+      const pct = Math.max(0, Math.min(100, p.percentual));
+      const color = pct>=70 ? 'var(--green)' : pct>=40 ? 'var(--amber)' : 'var(--red)';
+      return `
+      <div style="margin-bottom:16px;cursor:pointer;" onclick="openPilarModal('${p.id}')">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;">
+          <strong>${p.nome}</strong><span class="mono" style="color:${color}">${pct}%</span>
+        </div>
+        <div style="background:var(--panel2);border-radius:6px;height:8px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:${color};"></div>
+        </div>
+        ${p.meta ? `<div style="font-size:12px;color:var(--text-dim);margin-top:5px;">${p.meta}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  const wrapM = document.getElementById('marcosLista');
+  if(STATE.marcos.length===0){ wrapM.innerHTML = emptyState('Nenhum marco registrado ainda.'); return; }
+  wrapM.innerHTML = `<table><tr><th>Data</th><th>Marco</th><th>Impacto</th><th>Quem viu</th></tr>` +
+    STATE.marcos.map(m=>`<tr>
+      <td class="mono">${fmtDate(m.data_marco)}</td>
+      <td>${m.marco}</td>
+      <td><span class="badge ${m.impacto==='alto'?'negativa':m.impacto==='medio'?'pendente':'concluido'}" style="${m.impacto==='alto'?'background:rgba(232,93,93,.15);color:var(--red);':m.impacto==='medio'?'background:rgba(242,169,59,.15);color:var(--amber);':'background:rgba(63,178,127,.15);color:var(--green);'}">${m.impacto==='alto'?'Alto':m.impacto==='medio'?'Médio':'Baixo'}</span></td>
+      <td style="color:var(--text-dim)">${m.quem_viu||''}</td>
+    </tr>`).join('') + `</table>`;
+}
+
+function openPilarModal(id){
+  document.getElementById('plId').value = id || '';
+  if(id){
+    const p = STATE.pilares.find(x=>x.id===id);
+    document.getElementById('modalPilarTitle').textContent = 'Editar pilar';
+    document.getElementById('plNome').value = p.nome || '';
+    document.getElementById('plPercentual').value = p.percentual;
+    document.getElementById('plMeta').value = p.meta || '';
+    document.getElementById('btnDelPilar').style.display = 'inline-block';
+  } else {
+    document.getElementById('modalPilarTitle').textContent = 'Novo pilar';
+    document.getElementById('plNome').value = '';
+    document.getElementById('plPercentual').value = 0;
+    document.getElementById('plMeta').value = '';
+    document.getElementById('btnDelPilar').style.display = 'none';
+  }
+  openModal('modalPilar');
+}
+async function salvarPilar(){
+  const id = document.getElementById('plId').value;
+  const payload = {
+    nome: document.getElementById('plNome').value.trim(),
+    percentual: parseInt(document.getElementById('plPercentual').value) || 0,
+    meta: document.getElementById('plMeta').value.trim(),
+    updated_at: new Date().toISOString()
+  };
+  if(!payload.nome){ toast('Informe o nome do pilar.', true); return; }
+  let error;
+  if(id){ ({error} = await sb.from('fp_gestao_meus_pilares').update(payload).eq('id', id)); }
+  else { ({error} = await sb.from('fp_gestao_meus_pilares').insert(payload)); }
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalPilar');
+  await carregarTudo();
+  renderMeuDesenvolvimento();
+  toast('Pilar salvo.');
+}
+async function excluirPilar(){
+  const id = document.getElementById('plId').value;
+  if(!confirm('Excluir este pilar?')) return;
+  const { error } = await sb.from('fp_gestao_meus_pilares').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  closeModal('modalPilar');
+  await carregarTudo();
+  renderMeuDesenvolvimento();
+  toast('Pilar excluído.');
+}
+
+function openMarcoModal(){
+  document.getElementById('mcData').value = todayISO();
+  document.getElementById('mcMarco').value = '';
+  document.getElementById('mcQuemViu').value = '';
+  setImpacto('medio');
+  openModal('modalMarco');
+}
+function setImpacto(i){
+  impactoSel = i;
+  document.getElementById('impBaixo').classList.toggle('on', i==='baixo');
+  document.getElementById('impMedio').classList.toggle('on', i==='medio');
+  document.getElementById('impAlto').classList.toggle('on', i==='alto');
+}
+async function salvarMarco(){
+  const data_marco = document.getElementById('mcData').value || todayISO();
+  const marco = document.getElementById('mcMarco').value.trim();
+  const quem_viu = document.getElementById('mcQuemViu').value.trim();
+  if(!marco){ toast('Descreva o marco.', true); return; }
+  const { error } = await sb.from('fp_gestao_meus_marcos').insert({ data_marco, marco, impacto: impactoSel, quem_viu });
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalMarco');
+  await carregarTudo();
+  renderMeuDesenvolvimento();
+  toast('Marco registrado.');
 }
 
 /* ======================= INIT ======================= */
