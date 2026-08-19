@@ -164,6 +164,38 @@
   @keyframes spin{to{transform:rotate(360deg);}}
 
   .mobileTopbar{display:none;}
+
+  /* ---------- RELATÓRIO / IMPRESSÃO ---------- */
+  .reportControls{max-width:640px;}
+  #relatorioPreview{display:none;}
+  .reportPage{background:#fff;color:#1a2733;border-radius:10px;padding:34px 38px;margin-top:18px;max-width:820px;
+    font-family:'Inter',sans-serif;box-shadow:0 4px 30px rgba(0,0,0,.35);}
+  .reportPage + .reportPage{margin-top:26px;}
+  .repHead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0F1F35;padding-bottom:14px;margin-bottom:18px;}
+  .repHead h2{font-family:'Barlow Condensed';font-size:26px;color:#0F1F35;margin:0;text-transform:none;letter-spacing:0;}
+  .repHead .repSub{font-size:12.5px;color:#5c6472;margin-top:2px;}
+  .repHead .repPeriodo{text-align:right;font-size:11.5px;color:#5c6472;}
+  .repHead .repPeriodo b{display:block;color:#0F1F35;font-size:13px;}
+  .repKpis{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;}
+  .repKpi{flex:1;min-width:110px;background:#f4f6f8;border-radius:8px;padding:10px 12px;text-align:center;}
+  .repKpi .n{font-family:'JetBrains Mono';font-size:20px;font-weight:700;color:#0F1F35;}
+  .repKpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#5c6472;margin-top:2px;}
+  .repSection h4{font-family:'Inter';font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#0F1F35;
+    border-left:3px solid #1D9E75;padding-left:8px;margin:16px 0 8px;}
+  .repSection.neg h4{border-left-color:#E67E22;}
+  .repItem{font-size:12.5px;color:#2c3948;padding:5px 0 5px 8px;border-bottom:1px solid #eef0f2;}
+  .repItem .d{color:#8b93a1;font-size:11px;margin-right:8px;}
+  .repEmpty{font-size:12px;color:#8b93a1;font-style:italic;padding:4px 8px;}
+  .repRankTable{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:6px;}
+  .repRankTable th{text-align:left;font-size:10px;text-transform:uppercase;color:#5c6472;border-bottom:2px solid #0F1F35;padding:0 8px 6px;}
+  .repRankTable td{padding:7px 8px;border-bottom:1px solid #eef0f2;}
+  @media print{
+    body *{visibility:hidden;}
+    #relatorioPreview, #relatorioPreview *{visibility:visible;}
+    #relatorioPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
+    .reportPage{box-shadow:none;border-radius:0;page-break-after:always;max-width:100%;}
+    .reportPage:last-child{page-break-after:auto;}
+  }
   @media (max-width:840px){
     .sidebar{transform:translateX(-100%);transition:transform .2s;width:230px;}
     .sidebar.open{transform:translateX(0);}
@@ -210,6 +242,7 @@
     <div class="navItem" data-view="pontuacao" onclick="goView('pontuacao')">📊&nbsp; Pontuação</div>
     <div class="navItem" data-view="cultura" onclick="goView('cultura')">🧭&nbsp; Cultura</div>
     <div class="navItem" data-view="meudesenvolvimento" onclick="goView('meudesenvolvimento')">🎯&nbsp; Meu Desenvolvimento</div>
+    <div class="navItem" data-view="relatorios" onclick="goView('relatorios')">📄&nbsp; Relatórios</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
@@ -354,6 +387,34 @@
       </div>
     </section>
 
+    <!-- ---------- RELATÓRIOS ---------- -->
+    <section class="view" id="view-relatorios">
+      <div class="pageHead">
+        <div><h2>Relatórios</h2><p>Fechamento trimestral — individual pra levar ao Gustavo ou consolidado com todo o time</p></div>
+      </div>
+
+      <div class="panel reportControls">
+        <div class="row2">
+          <div class="field"><label>Data início</label><input type="date" id="repInicio"></div>
+          <div class="field"><label>Data fim</label><input type="date" id="repFim"></div>
+        </div>
+        <div class="field">
+          <label>Tipo de relatório</label>
+          <select id="repTipo" onchange="toggleRepMembroField()">
+            <option value="consolidado">Consolidado — todo o time</option>
+            <option value="individual">Individual — um colaborador</option>
+          </select>
+        </div>
+        <div class="field" id="repMembroField" style="display:none;">
+          <label>Colaborador</label><select id="repMembro"></select>
+        </div>
+        <button class="btn btn-primary" onclick="gerarRelatorio()">Gerar relatório</button>
+        <button class="btn btn-ghost" id="btnImprimir" style="display:none;margin-top:8px;width:100%;" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+      </div>
+
+      <div id="relatorioPreview"></div>
+    </section>
+
   </main>
 </div>
 
@@ -474,6 +535,7 @@ function goView(v){
   if(v==='pontuacao') renderPontuacaoView();
   if(v==='cultura') document.getElementById('culturaTexto').value = STATE.cultura || '';
   if(v==='meudesenvolvimento') renderMeuDesenvolvimento();
+  if(v==='relatorios') initRelatoriosDefaults();
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -1004,6 +1066,94 @@ async function salvarMarco(){
   await carregarTudo();
   renderMeuDesenvolvimento();
   toast('Marco registrado.');
+}
+
+/* ======================= RELATÓRIOS ======================= */
+function toggleRepMembroField(){
+  document.getElementById('repMembroField').style.display = document.getElementById('repTipo').value==='individual' ? 'block' : 'none';
+}
+function initRelatoriosDefaults(){
+  const hoje = new Date();
+  const trimAtras = new Date(hoje.getFullYear(), hoje.getMonth()-3, hoje.getDate());
+  document.getElementById('repInicio').value = trimAtras.toISOString().slice(0,10);
+  document.getElementById('repFim').value = todayISO();
+  document.getElementById('repMembro').innerHTML = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+}
+
+function dadosPeriodoMembro(membroId, ini, fim){
+  const pontuacoes = STATE.pontuacoes.filter(p=>p.membro_id===membroId && p.data_registro>=ini && p.data_registro<=fim);
+  const positivas = pontuacoes.filter(p=>p.tipo==='positiva');
+  const negativas = pontuacoes.filter(p=>p.tipo==='negativa');
+  const scorePeriodo = pontuacoes.reduce((s,p)=>s+p.pontos,0);
+  const acoesConcluidas = STATE.acoes.filter(a=>a.membro_id===membroId && a.status==='concluido');
+  const reunioes = STATE.reunioes.filter(r=>r.membro_id===membroId && r.data_reuniao>=ini && r.data_reuniao<=fim);
+  return { positivas, negativas, scorePeriodo, acoesConcluidas, reunioes };
+}
+
+function blocoRelatorioMembro(membro, ini, fim){
+  const d = dadosPeriodoMembro(membro.id, ini, fim);
+  const listaOuVazio = (arr, render, vazio) => arr.length ? arr.map(render).join('') : `<div class="repEmpty">${vazio}</div>`;
+  return `
+  <div class="reportPage">
+    <div class="repHead">
+      <div><h2>${membro.nome}</h2><div class="repSub">${membro.cargo||''} · Fechamento de Quarter</div></div>
+      <div class="repPeriodo"><b>${fmtDate(ini)} — ${fmtDate(fim)}</b>Período avaliado</div>
+    </div>
+    <div class="repKpis">
+      <div class="repKpi"><div class="n">${d.scorePeriodo>0?'+':''}${d.scorePeriodo}</div><div class="l">Score do período</div></div>
+      <div class="repKpi"><div class="n">${d.positivas.length}</div><div class="l">Ações positivas</div></div>
+      <div class="repKpi"><div class="n">${d.acoesConcluidas.length}</div><div class="l">Ações concluídas</div></div>
+      <div class="repKpi"><div class="n">${d.reunioes.length}</div><div class="l">Reuniões 1:1</div></div>
+    </div>
+    ${membro.objetivo ? `<div class="repSection"><h4>Objetivo / plano de desenvolvimento</h4><div class="repItem" style="border:none;">${membro.objetivo}</div></div>` : ''}
+    <div class="repSection">
+      <h4>Realizações do período</h4>
+      ${listaOuVazio(d.positivas, p=>`<div class="repItem"><span class="d">${fmtDate(p.data_registro)}</span>${p.descricao||'—'}</div>`, 'Nenhuma realização registrada no período.')}
+    </div>
+    <div class="repSection">
+      <h4>Ações concluídas</h4>
+      ${listaOuVazio(d.acoesConcluidas, a=>`<div class="repItem">${a.descricao}</div>`, 'Nenhuma ação concluída no período.')}
+    </div>
+    <div class="repSection neg">
+      <h4>Pontos de atenção / desenvolvimento</h4>
+      ${listaOuVazio(d.negativas, p=>`<div class="repItem"><span class="d">${fmtDate(p.data_registro)}</span>${p.descricao||'—'}</div>`, 'Nenhum ponto de atenção registrado no período.')}
+    </div>
+  </div>`;
+}
+
+function gerarRelatorio(){
+  const ini = document.getElementById('repInicio').value;
+  const fim = document.getElementById('repFim').value;
+  const tipo = document.getElementById('repTipo').value;
+  if(!ini || !fim){ toast('Informe o período.', true); return; }
+  if(STATE.equipe.length===0){ toast('Cadastre colaboradores primeiro.', true); return; }
+
+  const preview = document.getElementById('relatorioPreview');
+
+  if(tipo==='individual'){
+    const membroId = document.getElementById('repMembro').value;
+    const membro = STATE.equipe.find(m=>m.id===membroId);
+    if(!membro){ toast('Selecione um colaborador.', true); return; }
+    preview.innerHTML = blocoRelatorioMembro(membro, ini, fim);
+  } else {
+    const ranking = STATE.equipe.map(m=>({m, score: dadosPeriodoMembro(m.id, ini, fim).scorePeriodo}))
+      .sort((a,b)=>b.score-a.score);
+    const capa = `
+    <div class="reportPage">
+      <div class="repHead">
+        <div><h2>Fechamento de Quarter — Time</h2><div class="repSub">Coordenação 4PL · ADAMA</div></div>
+        <div class="repPeriodo"><b>${fmtDate(ini)} — ${fmtDate(fim)}</b>Período avaliado</div>
+      </div>
+      <table class="repRankTable">
+        <tr><th>Colaborador</th><th>Cargo</th><th>Score do período</th></tr>
+        ${ranking.map(r=>`<tr><td>${r.m.nome}</td><td>${r.m.cargo||''}</td><td>${r.score>0?'+':''}${r.score}</td></tr>`).join('')}
+      </table>
+    </div>`;
+    preview.innerHTML = capa + ranking.map(r=>blocoRelatorioMembro(r.m, ini, fim)).join('');
+  }
+
+  preview.style.display = 'block';
+  document.getElementById('btnImprimir').style.display = 'block';
 }
 
 /* ======================= INIT ======================= */
