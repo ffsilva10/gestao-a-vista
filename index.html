@@ -22,9 +22,6 @@
     --text:#1c2128; --text-dim:#5c6472; --text-faint:#8b93a1; --heading:#0f1420;
     --shadow-overlay: rgba(20,23,28,.35);
   }
-  body.light-theme .barTrack, body.light-theme select{
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235c6472'/%3E%3C/svg%3E");
-  }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
   h1,h2,h3,.disp{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase;}
@@ -133,8 +130,7 @@
   .modalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
   .xClose{background:none;border:none;color:var(--text-dim);font-size:20px;line-height:1;padding:4px;}
 
-  select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b93a1'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+  select{padding-right:28px;}
 
   .intensityRow{display:flex;gap:8px;}
   .intBtn{flex:1;text-align:center;padding:10px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);
@@ -154,7 +150,7 @@
   .alertBanner{background:rgba(232,93,93,.1);border:1px solid var(--red);border-radius:8px;padding:12px 16px;margin-bottom:14px;}
   .alertBanner h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--red);font-family:'Inter';font-weight:700;}
   .alertRow{font-size:12.5px;color:var(--text);padding:3px 0;}
-  .matriz9box{display:grid;grid-template-columns:90px repeat(3,1fr);grid-template-rows:repeat(3,1fr) 30px;gap:6px;}
+  .matriz9box{display:grid;grid-template-columns:64px repeat(3,minmax(100px,1fr));grid-template-rows:repeat(3,1fr) 26px;gap:6px;min-width:420px;}
   .m9-rowlabel{display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;}
   .m9-collabel{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;grid-row:4;}
   .m9-cell{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:90px;}
@@ -1683,7 +1679,7 @@ function renderMatriz9Box(){
   const potLabel = { alto:'Alto Potencial', medio:'Médio Potencial', baixo:'Baixo Potencial' };
   const desLabel = { baixo:'Baixo Desempenho', medio:'Médio Desempenho', alto:'Alto Desempenho' };
 
-  let html = '<div class="matriz9box">';
+  let html = '<div class="tableWrap"><div class="matriz9box">';
   potenciais.forEach(pot=>{
     html += `<div class="m9-rowlabel">${potLabel[pot]}</div>`;
     desempenhos.forEach(des=>{
@@ -1700,7 +1696,7 @@ function renderMatriz9Box(){
   });
   html += `<div></div>`;
   desempenhos.forEach(des=>{ html += `<div class="m9-collabel">${desLabel[des]}</div>`; });
-  html += '</div>';
+  html += '</div></div>';
   wrap.innerHTML = html;
 }
 
