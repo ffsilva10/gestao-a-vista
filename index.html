@@ -429,6 +429,57 @@
 
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <h3 style="margin:0;">Minhas competências</h3>
+          <button class="btn btn-ghost btn-sm" onclick="salvarMinhasCompetencias()">Salvar</button>
+        </div>
+        <div class="row2" style="align-items:flex-start;margin-top:10px;">
+          <div>
+            <div class="sliderRow"><label>Técnico</label><input type="range" min="0" max="10" id="meuTecnico" oninput="atualizarRadarMeu()"><span class="sliderVal" id="valMeuTecnico">5</span></div>
+            <div class="sliderRow"><label>Comunicação</label><input type="range" min="0" max="10" id="meuComunicacao" oninput="atualizarRadarMeu()"><span class="sliderVal" id="valMeuComunicacao">5</span></div>
+            <div class="sliderRow"><label>Autonomia</label><input type="range" min="0" max="10" id="meuAutonomia" oninput="atualizarRadarMeu()"><span class="sliderVal" id="valMeuAutonomia">5</span></div>
+            <div class="sliderRow"><label>Colaboração</label><input type="range" min="0" max="10" id="meuColaboracao" oninput="atualizarRadarMeu()"><span class="sliderVal" id="valMeuColaboracao">5</span></div>
+            <div class="sliderRow"><label>Cultura</label><input type="range" min="0" max="10" id="meuCultura" oninput="atualizarRadarMeu()"><span class="sliderVal" id="valMeuCultura">5</span></div>
+          </div>
+          <div id="radarMeuPreview"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Registrar conversa de desenvolvimento</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Cole anotações ou transcrição de conversas com seu gestor, diretora ou cliente — a IA extrai insights e próximos passos</p>
+        <div class="row2">
+          <div class="field">
+            <label>Com quem</label>
+            <select id="convComQuem">
+              <option value="Gustavo Bellintani">Gustavo (gerente)</option>
+              <option value="Tatiana Kimura">Tatiana (diretora)</option>
+              <option value="Clemente">Clemente (cliente)</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+          <div class="field"><label>Data</label><input type="date" id="convData"></div>
+        </div>
+        <div class="field">
+          <label>Colar anotações / transcrição</label>
+          <textarea id="convTexto" rows="7" placeholder="Cole aqui o que foi conversado..."></textarea>
+        </div>
+        <button class="btn btn-primary" id="btnGerarInsightsConversa" onclick="gerarInsightsConversa()">Confirmar e gerar insights com IA</button>
+
+        <div id="convResultado" style="display:none;">
+          <div class="insightBox"><h4>Resumo</h4><div id="outConvResumo"></div></div>
+          <div class="insightBox"><h4>Insights</h4><div id="outConvInsights"></div></div>
+          <div class="insightBox"><h4>Próximos passos sugeridos</h4><div id="outConvPassos"></div></div>
+          <button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="salvarConversa()">Salvar conversa</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Histórico de conversas</h3>
+        <div id="historicoConversas" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
           <h3 style="margin:0;">Pilares rumo à promoção</h3>
           <button class="btn btn-ghost btn-sm" onclick="openPilarModal()">+ Pilar</button>
         </div>
@@ -714,7 +765,12 @@ function goView(v){
   if(v==='projetos') renderProjetos();
   if(v==='pontuacao') renderPontuacaoView();
   if(v==='cultura') document.getElementById('culturaTexto').value = STATE.cultura || '';
-  if(v==='meudesenvolvimento') renderMeuDesenvolvimento();
+  if(v==='meudesenvolvimento'){
+    renderMeuDesenvolvimento();
+    carregarMinhasCompetencias();
+    document.getElementById('convData').value = todayISO();
+    renderHistoricoConversas();
+  }
   if(v==='relatorios') initRelatoriosDefaults();
   if(v==='talento') renderTalento();
 }
@@ -799,6 +855,7 @@ async function carregarTudo(){
   STATE.marcos = mc.data || [];
   STATE.projetos = pj.data || [];
   fillMembroSelects();
+  await carregarMinhasConversas();
 }
 
 async function salvarCultura(){
@@ -1780,6 +1837,121 @@ async function salvarTalento(){
   await carregarTudo();
   renderTalento();
   toast('Talento atualizado.');
+}
+
+/* ======================= MINHAS COMPETÊNCIAS ======================= */
+function atualizarRadarMeu(){
+  const vals = ['Tecnico','Comunicacao','Autonomia','Colaboracao','Cultura'].map(k=>{
+    const el = document.getElementById('meu'+k);
+    document.getElementById('valMeu'+k).textContent = el.value;
+    return parseInt(el.value);
+  });
+  document.getElementById('radarMeuPreview').innerHTML = radarSVG(vals);
+}
+
+async function carregarMinhasCompetencias(){
+  const { data } = await sb.from('fp_gestao_minhas_competencias').select('*').maybeSingle();
+  const c = data || { comp_tecnico:5, comp_comunicacao:5, comp_autonomia:5, comp_colaboracao:5, comp_cultura:5 };
+  document.getElementById('meuTecnico').value = c.comp_tecnico;
+  document.getElementById('meuComunicacao').value = c.comp_comunicacao;
+  document.getElementById('meuAutonomia').value = c.comp_autonomia;
+  document.getElementById('meuColaboracao').value = c.comp_colaboracao;
+  document.getElementById('meuCultura').value = c.comp_cultura;
+  atualizarRadarMeu();
+}
+
+async function salvarMinhasCompetencias(){
+  const payload = {
+    comp_tecnico: parseInt(document.getElementById('meuTecnico').value),
+    comp_comunicacao: parseInt(document.getElementById('meuComunicacao').value),
+    comp_autonomia: parseInt(document.getElementById('meuAutonomia').value),
+    comp_colaboracao: parseInt(document.getElementById('meuColaboracao').value),
+    comp_cultura: parseInt(document.getElementById('meuCultura').value),
+    updated_at: new Date().toISOString()
+  };
+  const { data: existente } = await sb.from('fp_gestao_minhas_competencias').select('id').maybeSingle();
+  let error;
+  if(existente){ ({error} = await sb.from('fp_gestao_minhas_competencias').update(payload).eq('id', existente.id)); }
+  else { ({error} = await sb.from('fp_gestao_minhas_competencias').insert(payload)); }
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  toast('Competências salvas.');
+}
+
+/* ======================= MINHAS CONVERSAS DE DESENVOLVIMENTO ======================= */
+let insightsConversaGerados = null;
+
+async function gerarInsightsConversa(){
+  const comQuem = document.getElementById('convComQuem').value;
+  const data = document.getElementById('convData').value;
+  const texto = document.getElementById('convTexto').value.trim();
+  if(!texto){ toast('Cole o texto da conversa.', true); return; }
+
+  const btn = document.getElementById('btnGerarInsightsConversa');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Gerando com IA...';
+
+  try{
+    const { data: fnData, error } = await sb.functions.invoke('gestao-minha-conversa-insights', {
+      body: { texto, com_quem: comQuem, data_conversa: data, pilares: STATE.pilares.map(p=>p.nome) }
+    });
+    if(error) throw error;
+
+    insightsConversaGerados = fnData;
+    document.getElementById('outConvResumo').textContent = fnData.resumo || '';
+    document.getElementById('outConvInsights').textContent = fnData.insights || '';
+    const passos = fnData.proximos_passos || [];
+    document.getElementById('outConvPassos').innerHTML = passos.length
+      ? passos.map(p=>`<div class="repItem" style="border:none;padding:3px 0;">• ${p}</div>`).join('')
+      : '<span style="color:var(--text-faint);font-size:12.5px;">Nenhum próximo passo identificado.</span>';
+    document.getElementById('convResultado').style.display = 'block';
+    toast('Insights gerados. Revise e salve abaixo.');
+  } catch(e){
+    let msg = e.message || String(e);
+    if(e.context && typeof e.context.json === 'function'){
+      try{ const body = await e.context.json(); if(body && body.error) msg = body.error; } catch(_e){}
+    }
+    toast('Erro ao gerar insights: ' + msg, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Confirmar e gerar insights com IA';
+  }
+}
+
+async function salvarConversa(){
+  if(!insightsConversaGerados){ toast('Gere os insights primeiro.', true); return; }
+  const payload = {
+    data_conversa: document.getElementById('convData').value || todayISO(),
+    com_quem: document.getElementById('convComQuem').value,
+    texto_bruto: document.getElementById('convTexto').value.trim(),
+    resumo: insightsConversaGerados.resumo,
+    insights: insightsConversaGerados.insights,
+    proximos_passos: insightsConversaGerados.proximos_passos || []
+  };
+  const { error } = await sb.from('fp_gestao_minhas_conversas').insert(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  document.getElementById('convTexto').value = '';
+  document.getElementById('convResultado').style.display = 'none';
+  insightsConversaGerados = null;
+  await carregarMinhasConversas();
+  renderHistoricoConversas();
+  toast('Conversa salva.');
+}
+
+let STATE_CONVERSAS = [];
+async function carregarMinhasConversas(){
+  const { data } = await sb.from('fp_gestao_minhas_conversas').select('*').order('data_conversa', {ascending:false});
+  STATE_CONVERSAS = data || [];
+}
+
+function renderHistoricoConversas(){
+  const wrap = document.getElementById('historicoConversas');
+  if(STATE_CONVERSAS.length===0){ wrap.innerHTML = emptyState('Nenhuma conversa registrada ainda.'); return; }
+  wrap.innerHTML = STATE_CONVERSAS.map(c=>`
+    <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
+      <div style="display:flex;justify-content:space-between;">
+        <strong>${c.com_quem}</strong>
+        <span class="mono" style="color:var(--text-dim);font-size:12px;">${fmtDate(c.data_conversa)}</span>
+      </div>
+      ${c.resumo ? `<div class="insightBox" style="margin-top:10px;">${c.resumo}</div>` : ''}
+    </div>`).join('');
 }
 
 /* ======================= TEMA ======================= */
