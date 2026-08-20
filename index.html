@@ -11,10 +11,19 @@
 <style>
   :root{
     --bg:#14171c; --panel:#1d2229; --panel2:#262c35; --line:#333b46;
-    --text:#e8eaed; --text-dim:#8b93a1; --text-faint:#5c6472;
+    --text:#e8eaed; --text-dim:#8b93a1; --text-faint:#5c6472; --heading:#ffffff;
     --amber:#f2a93b; --green:#3fb27f; --red:#e85d5d; --blue:#4c8dff;
     --amber-glow: rgba(242,169,59,.35); --green-glow: rgba(63,178,127,.4); --red-glow: rgba(232,93,93,.4);
     --radius:10px;
+    --shadow-overlay: rgba(10,12,15,.72);
+  }
+  body.light-theme{
+    --bg:#f4f5f7; --panel:#ffffff; --panel2:#eef0f3; --line:#dde1e6;
+    --text:#1c2128; --text-dim:#5c6472; --text-faint:#8b93a1; --heading:#0f1420;
+    --shadow-overlay: rgba(20,23,28,.35);
+  }
+  body.light-theme .barTrack, body.light-theme select{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235c6472'/%3E%3C/svg%3E");
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
@@ -35,7 +44,7 @@
   .loginBox{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:32px 28px;}
   .loginBox .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
   .lightDot{width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber-glow);flex:none;}
-  .loginBox h1{font-size:28px;margin:0;color:#fff;}
+  .loginBox h1{font-size:28px;margin:0;color:var(--heading);}
   .loginBox p.sub{color:var(--text-dim);font-size:13px;margin:2px 0 24px;}
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:6px;}
@@ -57,7 +66,7 @@
   .sidebar{width:220px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;
     position:fixed;top:0;bottom:0;left:0;display:flex;flex-direction:column;z-index:50;}
   .sidebar .brand{display:flex;align-items:center;gap:9px;padding:0 8px 20px;border-bottom:1px solid var(--line);margin-bottom:16px;}
-  .sidebar .brand h1{font-size:19px;color:#fff;margin:0;line-height:1;}
+  .sidebar .brand h1{font-size:19px;color:var(--heading);margin:0;line-height:1;}
   .navItem{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--text-dim);
     font-size:13.5px;font-weight:500;margin-bottom:2px;cursor:pointer;transition:background .12s,color .12s;}
   .navItem svg{width:17px;height:17px;flex:none;opacity:.8;}
@@ -69,7 +78,7 @@
 
   main{margin-left:220px;padding:26px 30px 60px;max-width:1180px;}
   .pageHead{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
-  .pageHead h2{font-size:26px;color:#fff;margin:0;}
+  .pageHead h2{font-size:26px;color:var(--heading);margin:0;}
   .pageHead p{color:var(--text-dim);font-size:13px;margin:4px 0 0;}
   .view{display:none;}
   .view.active{display:block;}
@@ -86,7 +95,7 @@
   .andon.red{background:var(--red);box-shadow:0 0 14px 1px var(--red-glow) inset;}
   .andon.grey{background:var(--line);}
   .mcTop{display:flex;justify-content:space-between;align-items:flex-start;}
-  .mcName{font-size:17px;font-weight:700;color:#fff;}
+  .mcName{font-size:17px;font-weight:700;color:var(--heading);}
   .mcCargo{font-size:12px;color:var(--text-dim);margin-top:1px;}
   .mcScore{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;text-align:right;}
   .mcScore.green{color:var(--green);} .mcScore.amber{color:var(--amber);} .mcScore.red{color:var(--red);} .mcScore.grey{color:var(--text-dim);}
@@ -99,7 +108,7 @@
   .tableWrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -20px;padding:0 20px;}
   .tableWrap table{min-width:540px;}
   .panel + .panel{margin-top:14px;}
-  .panel h3{font-size:14px;color:#fff;margin:0 0 12px;letter-spacing:.03em;}
+  .panel h3{font-size:14px;color:var(--heading);margin:0 0 12px;letter-spacing:.03em;}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;color:var(--text-faint);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
@@ -115,11 +124,11 @@
   .badge.positiva{background:rgba(63,178,127,.15);color:var(--green);}
   .badge.negativa{background:rgba(232,93,93,.15);color:var(--red);}
 
-  .modalBg{display:none;position:fixed;inset:0;background:rgba(10,12,15,.72);z-index:100;align-items:flex-start;justify-content:center;
+  .modalBg{display:none;position:fixed;inset:0;background:var(--shadow-overlay);z-index:100;align-items:flex-start;justify-content:center;
     padding:30px 16px;overflow-y:auto;}
   .modalBg.active{display:flex;}
   .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);width:100%;max-width:560px;padding:24px;margin-bottom:30px;}
-  .modal h3{font-size:18px;color:#fff;margin:0 0 4px;}
+  .modal h3{font-size:18px;color:var(--heading);margin:0 0 4px;}
   .modal .close{position:absolute;}
   .modalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
   .xClose{background:none;border:none;color:var(--text-dim);font-size:20px;line-height:1;padding:4px;}
@@ -211,7 +220,7 @@
     .mobileTopbar{display:flex;align-items:center;justify-content:space-between;position:fixed;top:0;left:0;right:0;height:56px;
       background:var(--panel);border-bottom:1px solid var(--line);padding:0 14px;z-index:40;}
     .mobileTopbar .brand{display:flex;align-items:center;gap:8px;}
-    .mobileTopbar h1{font-size:17px;color:#fff;margin:0;}
+    .mobileTopbar h1{font-size:17px;color:var(--heading);margin:0;}
     .hamb{background:none;border:none;color:var(--text);font-size:22px;padding:6px;}
     .sidebarOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:45;}
     .sidebarOverlay.active{display:block;}
@@ -254,6 +263,7 @@
     <div class="navItem" data-view="relatorios" onclick="goView('relatorios')">📄&nbsp; Relatórios</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
     </div>
   </nav>
@@ -1490,6 +1500,19 @@ function gerarRelatorio(){
   preview.style.display = 'block';
   document.getElementById('btnImprimir').style.display = 'block';
 }
+
+/* ======================= TEMA ======================= */
+function aplicarTema(theme){
+  document.body.classList.toggle('light-theme', theme === 'light');
+  const btn = document.getElementById('btnTheme');
+  if(btn) btn.textContent = theme === 'light' ? '☀️ Modo claro' : '🌙 Modo escuro';
+}
+function toggleTheme(){
+  const atual = localStorage.getItem('gestaoAVistaTheme') === 'light' ? 'dark' : 'light';
+  localStorage.setItem('gestaoAVistaTheme', atual);
+  aplicarTema(atual);
+}
+aplicarTema(localStorage.getItem('gestaoAVistaTheme') || 'dark');
 
 /* ======================= INIT ======================= */
 checkSession();
