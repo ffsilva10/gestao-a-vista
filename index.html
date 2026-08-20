@@ -266,12 +266,13 @@
         <div><h2>Início</h2><p>Visão geral da equipe — luz indica tendência de desempenho</p></div>
         <button class="btn btn-primary btn-sm" onclick="openMembroModal()">+ Membro</button>
       </div>
-      <div class="grid grid-cards" id="inicioCards"></div>
 
-      <div class="panel" style="margin-top:18px;">
-        <h3>Próximas reuniões combinadas</h3>
-        <div id="proximasReunioes"></div>
+      <div class="panel" style="margin-bottom:18px;">
+        <h3>📅 Próximas obrigações</h3>
+        <div id="proximasObrigacoes"></div>
       </div>
+
+      <div class="grid grid-cards" id="inicioCards"></div>
     </section>
 
     <!-- ---------- EQUIPE ---------- -->
@@ -473,6 +474,7 @@
     <div class="field"><label>Objetivo / plano de desenvolvimento</label><textarea id="mbObjetivo" rows="3"></textarea></div>
     <div class="field"><label>Minha percepção (pontos fortes, a desenvolver, postura, apresentação)</label><textarea id="mbPercepcao" rows="4" placeholder="Sua análise inicial sobre o colaborador — a IA usa isso junto com as atas de reunião pra sugerir o perfil dele e o alinhamento com a cultura"></textarea></div>
     <div class="field"><label>Observações gerais</label><textarea id="mbObs" rows="3"></textarea></div>
+    <div class="field"><label>Próximo feedback</label><input type="date" id="mbProximoFeedback"></div>
     <div class="row2">
       <div class="field"><label>Salário atual (R$)</label><input type="text" inputmode="decimal" id="mbSalarioAtual" placeholder="Ex: 3500,00"></div>
       <div class="field"><label>Salário anterior (antes do último aumento)</label><input type="text" inputmode="decimal" id="mbSalarioAnterior" placeholder="Ex: 3200,00"></div>
@@ -746,16 +748,44 @@ function renderInicio(){
       </div>`;
     }).join('');
   }
-  const prox = document.getElementById('proximasReunioes');
-  const proximas = STATE.reunioes.filter(r=>r.proxima_reuniao).sort((a,b)=>a.proxima_reuniao.localeCompare(b.proxima_reuniao));
-  if(proximas.length===0){ prox.innerHTML = `<p style="color:var(--text-faint);font-size:13px;">Nenhuma próxima reunião combinada ainda.</p>`; }
-  else {
-    prox.innerHTML = `<div class="tableWrap"><table><tr><th>Colaborador</th><th>Data combinada</th></tr>` +
-      proximas.map(r=>{
-        const m = STATE.equipe.find(x=>x.id===r.membro_id);
-        return `<tr><td>${m? m.nome : '—'}</td><td class="mono">${fmtDate(r.proxima_reuniao)}</td></tr>`;
-      }).join('') + `</table></div>`;
-  }
+  renderProximasObrigacoes();
+}
+
+function renderProximasObrigacoes(){
+  const prox = document.getElementById('proximasObrigacoes');
+  const hoje = todayISO();
+  let itens = [];
+
+  STATE.equipe.forEach(m=>{
+    if(m.proximo_feedback){
+      itens.push({ data: m.proximo_feedback, tipo: '🗓 Feedback', desc: m.nome, cor: 'var(--amber)' });
+    }
+  });
+  STATE.reunioes.forEach(r=>{
+    if(r.proxima_reuniao){
+      const m = STATE.equipe.find(x=>x.id===r.membro_id);
+      itens.push({ data: r.proxima_reuniao, tipo: '📝 Reunião', desc: m? m.nome : '—', cor: 'var(--blue)' });
+    }
+  });
+  STATE.projetos.forEach(p=>{
+    if(p.status!=='concluido' && p.proxima_reuniao){
+      itens.push({ data: p.proxima_reuniao, tipo: '👀 Overview', desc: p.nome, cor: 'var(--blue)' });
+    }
+    if(p.status!=='concluido' && p.data_entrega){
+      itens.push({ data: p.data_entrega, tipo: '🏁 Conclusão', desc: p.nome, cor: 'var(--red)' });
+    }
+  });
+
+  itens = itens.filter(i=>i.data>=hoje).sort((a,b)=>a.data.localeCompare(b.data));
+
+  if(itens.length===0){ prox.innerHTML = `<p style="color:var(--text-faint);font-size:13px;">Nenhuma obrigação com data marcada.</p>`; return; }
+
+  prox.innerHTML = `<div class="tableWrap"><table><tr><th>O quê</th><th>Quem/Projeto</th><th>Data</th></tr>` +
+    itens.map(i=>`<tr>
+      <td><span style="color:${i.cor}">${i.tipo}</span></td>
+      <td>${i.desc}</td>
+      <td class="mono">${fmtDate(i.data)}</td>
+    </tr>`).join('') + `</table></div>`;
 }
 
 function emptyState(msg){
@@ -778,6 +808,7 @@ function renderEquipe(){
       ${m.perfil_atual ? `<div class="mcMeta" style="margin-top:8px;"><span class="badge" style="background:rgba(76,141,255,.15);color:var(--blue);">🧩 ${m.perfil_atual}</span>${m.alinhamento_cultural ? ` <span class="badge" style="background:rgba(63,178,127,.12);color:var(--green);">${m.alinhamento_cultural}</span>` : ''}</div>` : ''}
       <div class="mcObj">${m.objetivo ? m.objetivo : '<span style="color:var(--text-faint)">Sem objetivo definido</span>'}</div>
       ${m.observacoes ? `<div class="mcObj">📌 ${m.observacoes}</div>` : ''}
+      ${m.proximo_feedback ? `<div class="mcMeta" style="margin-top:8px;"><span>🗓 Próximo feedback: <span class="mono">${fmtDate(m.proximo_feedback)}</span></span></div>` : ''}
       ${blocoSalario(m)}
       <div class="mcActions">
         <button class="btn btn-ghost btn-sm" onclick="openMembroModal('${m.id}')">Editar</button>
@@ -817,13 +848,14 @@ function openMembroModal(id){
     document.getElementById('mbObjetivo').value = m.objetivo || '';
     document.getElementById('mbPercepcao').value = m.percepcao_inicial || '';
     document.getElementById('mbObs').value = m.observacoes || '';
+    document.getElementById('mbProximoFeedback').value = m.proximo_feedback || '';
     document.getElementById('mbSalarioAtual').value = m.salario_atual != null ? formatarMoedaInput(m.salario_atual) : '';
     document.getElementById('mbSalarioAnterior').value = m.salario_anterior != null ? formatarMoedaInput(m.salario_anterior) : '';
     document.getElementById('mbDataMovimentacao').value = m.data_ultima_movimentacao || '';
     document.getElementById('btnDelMembro').style.display = 'inline-block';
   } else {
     document.getElementById('modalMembroTitle').textContent = 'Novo colaborador';
-    ['mbNome','mbCargo','mbAdmissao','mbObjetivo','mbPercepcao','mbObs','mbSalarioAtual','mbSalarioAnterior','mbDataMovimentacao'].forEach(f=>document.getElementById(f).value='');
+    ['mbNome','mbCargo','mbAdmissao','mbObjetivo','mbPercepcao','mbObs','mbProximoFeedback','mbSalarioAtual','mbSalarioAnterior','mbDataMovimentacao'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('btnDelMembro').style.display = 'none';
   }
   openModal('modalMembro');
@@ -838,6 +870,7 @@ async function salvarMembro(){
     objetivo: document.getElementById('mbObjetivo').value.trim(),
     percepcao_inicial: document.getElementById('mbPercepcao').value.trim(),
     observacoes: document.getElementById('mbObs').value.trim(),
+    proximo_feedback: document.getElementById('mbProximoFeedback').value || null,
     salario_atual: parseMoeda(document.getElementById('mbSalarioAtual').value),
     salario_anterior: parseMoeda(document.getElementById('mbSalarioAnterior').value),
     data_ultima_movimentacao: document.getElementById('mbDataMovimentacao').value || null
@@ -928,7 +961,14 @@ async function gerarInsights(){
     document.getElementById('reResultado').style.display = 'block';
     toast('Ata gerada. Revise e salve abaixo.');
   } catch(e){
-    toast('Erro ao gerar insights: ' + (e.message||e), true);
+    let msg = e.message || String(e);
+    if(e.context && typeof e.context.json === 'function'){
+      try{
+        const body = await e.context.json();
+        if(body && body.error) msg = body.error;
+      } catch(_e){ /* corpo não era JSON, mantém msg original */ }
+    }
+    toast('Erro ao gerar insights: ' + msg, true);
   } finally {
     btn.disabled = false; btn.textContent = 'Confirmar e gerar ata com IA';
   }
