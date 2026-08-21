@@ -551,7 +551,7 @@
       </div>
 
       <div class="panel">
-        <h3>Risco de saída por colaborador</h3>
+        <h3>Análise de Atendimento</h3>
         <div id="riscoLista" style="margin-top:10px;"></div>
       </div>
     </section>
@@ -603,7 +603,13 @@
       </div>
     </div>
     <div class="field"><label>Data</label><input type="date" id="ptData"></div>
-    <div class="field"><label>Descrição / observação</label><textarea id="ptDescricao" rows="3" placeholder="Ex: criou o BI de rotas sozinho, ótima entrega"></textarea></div>
+    <div class="field">
+      <label style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Descrição / observação</span>
+        <button type="button" class="eyeBtn" id="btnDitadoPontuacao" onclick="toggleDitado('ptDescricao', this)" style="font-size:16px;">🎤</button>
+      </label>
+      <textarea id="ptDescricao" rows="3" placeholder="Ex: criou o BI de rotas sozinho, ótima entrega"></textarea>
+    </div>
     <button class="btn btn-primary" style="width:100%" onclick="salvarPontuacao()">Salvar pontuação</button>
   </div>
 </div>
@@ -648,7 +654,7 @@
     </div>
 
     <div class="field">
-      <label>Risco de saída (calculado automaticamente)</label>
+      <label>Análise de Atendimento (calculado automaticamente)</label>
       <div id="riscoDetalheModal"></div>
     </div>
 
@@ -1952,6 +1958,33 @@ function renderHistoricoConversas(){
       </div>
       ${c.resumo ? `<div class="insightBox" style="margin-top:10px;">${c.resumo}</div>` : ''}
     </div>`).join('');
+}
+
+/* ======================= DITADO POR VOZ ======================= */
+let reconhecimentoAtivo = null;
+function toggleDitado(fieldId, btn){
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!Rec){
+    toast('Ditado por voz não é suportado neste navegador. No iPhone, toque o campo e use o microfone do teclado do próprio iOS.', true);
+    return;
+  }
+  if(reconhecimentoAtivo){
+    reconhecimentoAtivo.stop();
+    return;
+  }
+  const rec = new Rec();
+  rec.lang = 'pt-BR';
+  rec.interimResults = false;
+  rec.continuous = false;
+  rec.onstart = () => { btn.textContent = '⏺️'; btn.style.color = 'var(--red)'; reconhecimentoAtivo = rec; };
+  rec.onresult = (e) => {
+    const texto = e.results[0][0].transcript;
+    const campo = document.getElementById(fieldId);
+    campo.value = campo.value ? (campo.value.trim() + ' ' + texto) : texto;
+  };
+  rec.onerror = () => { toast('Não foi possível captar o áudio.', true); };
+  rec.onend = () => { btn.textContent = '🎤'; btn.style.color = ''; reconhecimentoAtivo = null; };
+  rec.start();
 }
 
 /* ======================= TEMA ======================= */
