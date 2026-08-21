@@ -353,11 +353,16 @@
       </div>
 
       <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">PDF — Histórico de Feedbacks</h3>
-          <button class="btn btn-primary btn-sm" onclick="gerarPdfAtas()">🖨️ Gerar PDF</button>
+        <h3>PDF — Histórico de Feedbacks</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Um card colorido por pessoa, pronto pra imprimir ou salvar como PDF e enviar ao Gustavo/Tatiana</p>
+        <div class="field">
+          <label>O que incluir por colaborador</label>
+          <div class="intensityRow">
+            <div class="intBtn sel-baixa on" id="pdfModoRecente" onclick="setPdfModo('recente')">Só a mais recente</div>
+            <div class="intBtn sel-baixa" id="pdfModoTodas" onclick="setPdfModo('todas')">Todas as reuniões</div>
+          </div>
         </div>
-        <p style="color:var(--text-dim);font-size:12px;margin:6px 0 0;">Última ata de cada colaborador, um card colorido por pessoa — pronto pra imprimir ou salvar como PDF e enviar ao Gustavo/Tatiana</p>
+        <button class="btn btn-primary" style="width:100%;" onclick="gerarPdfAtas()">🖨️ Gerar PDF</button>
         <div id="pdfAtasPreview"></div>
       </div>
     </section>
@@ -1149,6 +1154,23 @@ async function excluirReuniao(reuniaoId){
 }
 
 const CORES_PDF = ['#2D7DD2','#1D9E75','#E67E22','#6C3483','#C0392B','#117A65'];
+let pdfModoSel = 'recente';
+function setPdfModo(m){
+  pdfModoSel = m;
+  document.getElementById('pdfModoRecente').classList.toggle('on', m==='recente');
+  document.getElementById('pdfModoTodas').classList.toggle('on', m==='todas');
+}
+
+function cardReuniaoHtml(reuniao, cor){
+  const bullets = reuniao && reuniao.ata_gerada
+    ? reuniao.ata_gerada.split(/(?<=[.!?])\s+/).filter(s=>s.trim().length>3)
+    : [];
+  return `
+    <div style="background:#fff;border-radius:10px;border-left:6px solid ${cor};box-shadow:0 2px 10px rgba(0,0,0,.08);padding:18px 20px;margin-bottom:14px;break-inside:avoid;">
+      <div style="font-size:11px;color:#8b93a1;margin-bottom:8px;">${reuniao ? fmtDate(reuniao.data_reuniao) : ''}</div>
+      ${bullets.length ? `<ul style="margin:0;padding-left:18px;color:#2c3948;font-size:13px;line-height:1.6;">${bullets.map(b=>`<li style="margin-bottom:4px;">${b.trim()}</li>`).join('')}</ul>` : '<div style="color:#8b93a1;font-size:12.5px;font-style:italic;">Nenhuma ata registrada ainda.</div>'}
+    </div>`;
+}
 
 function gerarPdfAtas(){
   if(STATE.equipe.length===0){ toast('Cadastre colaboradores primeiro.', true); return; }
@@ -1156,25 +1178,28 @@ function gerarPdfAtas(){
 
   const cards = STATE.equipe.map((m, idx) => {
     const reunioesDele = STATE.reunioes.filter(r=>r.membro_id===m.id).sort((a,b)=>b.data_reuniao.localeCompare(a.data_reuniao));
-    const ultima = reunioesDele[0];
     const cor = CORES_PDF[idx % CORES_PDF.length];
-    const bullets = ultima && ultima.ata_gerada
-      ? ultima.ata_gerada.split(/(?<=[.!?])\s+/).filter(s=>s.trim().length>3)
-      : [];
+
+    let conteudo;
+    if(pdfModoSel === 'todas'){
+      conteudo = reunioesDele.length
+        ? reunioesDele.map(r=>cardReuniaoHtml(r, cor)).join('')
+        : cardReuniaoHtml(null, cor);
+    } else {
+      conteudo = cardReuniaoHtml(reunioesDele[0] || null, cor);
+    }
+
     return `
-    <div style="background:#fff;border-radius:10px;border-left:6px solid ${cor};box-shadow:0 2px 10px rgba(0,0,0,.08);padding:18px 20px;margin-bottom:14px;break-inside:avoid;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-        <h3 style="margin:0;font-family:'Barlow Condensed';font-size:20px;color:${cor};text-transform:none;letter-spacing:0;">${m.nome}</h3>
-        <span style="font-size:11px;color:#8b93a1;">${ultima ? fmtDate(ultima.data_reuniao) : 'sem reunião registrada'}</span>
-      </div>
-      ${bullets.length ? `<ul style="margin:0;padding-left:18px;color:#2c3948;font-size:13px;line-height:1.6;">${bullets.map(b=>`<li style="margin-bottom:4px;">${b.trim()}</li>`).join('')}</ul>` : '<div style="color:#8b93a1;font-size:12.5px;font-style:italic;">Nenhuma ata registrada ainda.</div>'}
+    <div style="break-inside:avoid;margin-bottom:6px;">
+      <h3 style="margin:0 0 8px;font-family:'Barlow Condensed';font-size:20px;color:${cor};text-transform:none;letter-spacing:0;">${m.nome}</h3>
+      ${conteudo}
     </div>`;
   }).join('');
 
   preview.innerHTML = `
   <div class="reportPage" style="max-width:100%;">
     <div class="repHead">
-      <div><h2>Gestão à Vista</h2><div class="repSub">Histórico de Feedbacks — última ata por colaborador</div></div>
+      <div><h2>Gestão à Vista</h2><div class="repSub">Histórico de Feedbacks — ${pdfModoSel==='todas' ? 'todas as reuniões' : 'última ata'} por colaborador</div></div>
       <div class="repPeriodo"><b>${fmtDate(todayISO())}</b>Gerado em</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">${cards}</div>
