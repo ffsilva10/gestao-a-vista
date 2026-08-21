@@ -224,9 +224,10 @@
   .repRankTable td{padding:7px 8px;border-bottom:1px solid #eef0f2;}
   @media print{
     body *{visibility:hidden;}
-    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *{visibility:visible;}
+    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *, #pdfTalentoPreview, #pdfTalentoPreview *{visibility:visible;}
     #relatorioPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfAtasPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
+    #pdfTalentoPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     .reportPage{box-shadow:none;border-radius:0;page-break-after:always;max-width:100%;}
     .reportPage:last-child{page-break-after:auto;}
   }
@@ -568,6 +569,13 @@
       <div class="panel">
         <h3>Análise de Atendimento</h3>
         <div id="riscoLista" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="panel">
+        <h3>PDF de apresentação — Reunião de resultados</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Matriz 9-Box, Análise de Atendimento e o detalhe de cada colaborador (radar + sucessão), pronto pra levar ao Gustavo</p>
+        <button class="btn btn-primary" style="width:100%;" onclick="gerarPdfTalento()">🖨️ Gerar PDF de apresentação</button>
+        <div id="pdfTalentoPreview"></div>
       </div>
     </section>
 
@@ -2035,6 +2043,125 @@ async function salvarTalento(){
   renderTalento();
   toast('Talento atualizado.');
 }
+
+/* ======================= PDF DE APRESENTAÇÃO — TALENTO ======================= */
+function radarSVGClaro(vals, size){
+  size = size || 200;
+  const labels = ['Técnico','Comunicação','Autonomia','Colaboração','Cultura'];
+  const cx = size/2, cy = size/2, r = size/2 - 34;
+  const step = (Math.PI*2)/5;
+  const pts = vals.map((v,i)=>{
+    const ang = -Math.PI/2 + i*step;
+    const rad = (v/10)*r;
+    return [cx+rad*Math.cos(ang), cy+rad*Math.sin(ang)];
+  });
+  const poly = pts.map(p=>p.join(',')).join(' ');
+  let rings = '', axes = '', labelsSvg = '';
+  [2,4,6,8,10].forEach(s=>{
+    const rp = [];
+    for(let i=0;i<5;i++){ const ang=-Math.PI/2+i*step; const rad=(s/10)*r; rp.push(`${cx+rad*Math.cos(ang)},${cy+rad*Math.sin(ang)}`); }
+    rings += `<polygon points="${rp.join(' ')}" fill="none" stroke="#dde1e6" stroke-width="1"/>`;
+  });
+  for(let i=0;i<5;i++){
+    const ang = -Math.PI/2 + i*step;
+    const x2 = cx+r*Math.cos(ang), y2 = cy+r*Math.sin(ang);
+    axes += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="#dde1e6" stroke-width="1"/>`;
+    const lx = cx+(r+18)*Math.cos(ang), ly = cy+(r+18)*Math.sin(ang);
+    labelsSvg += `<text x="${lx}" y="${ly}" font-size="9.5" fill="#5c6472" text-anchor="middle" dominant-baseline="middle">${labels[i]}</text>`;
+  }
+  return `<svg viewBox="0 0 ${size} ${size}" width="100%" style="max-width:220px;display:block;margin:0 auto;">
+    ${rings}${axes}
+    <polygon points="${poly}" fill="#2D7DD2" fill-opacity="0.22" stroke="#2D7DD2" stroke-width="2"/>
+    ${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="#2D7DD2"/>`).join('')}
+    ${labelsSvg}
+  </svg>`;
+}
+
+function gerarPdfTalento(){
+  if(STATE.equipe.length===0){ toast('Cadastre colaboradores primeiro.', true); return; }
+  const preview = document.getElementById('pdfTalentoPreview');
+  const potenciais = ['alto','medio','baixo'];
+  const desempenhos = ['baixo','medio','alto'];
+  const potLabel = { alto:'Alto Potencial', medio:'Médio Potencial', baixo:'Baixo Potencial' };
+  const desLabel = { baixo:'Baixo Desempenho', medio:'Médio Desempenho', alto:'Alto Desempenho' };
+
+  let matrizHtml = '<table style="width:100%;border-collapse:collapse;">';
+  potenciais.forEach(pot=>{
+    matrizHtml += '<tr>';
+    matrizHtml += `<td style="width:70px;font-size:9.5px;color:#5c6472;text-transform:uppercase;vertical-align:middle;padding:4px;">${potLabel[pot]}</td>`;
+    desempenhos.forEach(des=>{
+      const membros = STATE.equipe.filter(m=>{
+        const mPot = m.potencial || 'medio';
+        const mDes = tierParaFaixa(tierFromScore(scoreMembro(m.id)));
+        return mPot===pot && mDes===des;
+      });
+      matrizHtml += `<td style="border:1px solid #dde1e6;background:#f4f5f7;padding:8px;vertical-align:top;min-width:110px;">
+        <div style="font-size:9px;color:#8b93a1;text-transform:uppercase;margin-bottom:4px;">${CELL_LABELS[pot+'_'+des]}</div>
+        ${membros.map(m=>`<div style="display:inline-block;background:#fff;border:1px solid #dde1e6;border-radius:12px;padding:3px 9px;font-size:11px;margin:2px;">${m.nome}</div>`).join('') || '<span style="color:#c3c9d1;font-size:10px;">—</span>'}
+      </td>`;
+    });
+    matrizHtml += '</tr>';
+  });
+  matrizHtml += '<tr><td></td>' + desempenhos.map(des=>`<td style="text-align:center;font-size:9.5px;color:#5c6472;text-transform:uppercase;padding:4px;">${desLabel[des]}</td>`).join('') + '</tr>';
+  matrizHtml += '</table>';
+
+  const riscoCorMap = { alto:'#C0392B', medio:'#E67E22', baixo:'#1D9E75' };
+  const riscoHtml = STATE.equipe.map(m=>{
+    const r = calcularRisco(m);
+    const cor = riscoCorMap[r.nivel];
+    return `<div style="display:inline-block;width:47%;margin:0 1.5% 12px;vertical-align:top;background:#fff;border-left:5px solid ${cor};border-radius:8px;padding:12px 14px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong style="font-size:13.5px;color:#1c2128;">${m.nome}</strong>
+        <span style="background:${cor}22;color:${cor};font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 9px;border-radius:12px;">${r.nivel}</span>
+      </div>
+      ${r.sinais.length ? r.sinais.map(s=>`<div style="font-size:11.5px;color:#5c6472;margin-top:4px;">• ${s}</div>`).join('') : `<div style="font-size:11.5px;color:#8b93a1;font-style:italic;margin-top:4px;">Nenhum sinal de risco.</div>`}
+    </div>`;
+  }).join('');
+
+  const capa = `
+  <div class="reportPage" style="max-width:100%;">
+    <div class="repHead">
+      <div><h2>Gestão à Vista</h2><div class="repSub">Panorama de Talento — Reunião de Resultados</div></div>
+      <div class="repPeriodo"><b>${fmtDate(todayISO())}</b>Gerado em</div>
+    </div>
+    <div class="repSection" style="margin-top:4px;">
+      <h4>Matriz 9-Box (Potencial × Desempenho)</h4>
+      ${matrizHtml}
+    </div>
+    <div class="repSection">
+      <h4>Análise de Atendimento</h4>
+      <div>${riscoHtml}</div>
+    </div>
+  </div>`;
+
+  const paginasIndividuais = STATE.equipe.map(m=>{
+    const vals = [m.comp_tecnico, m.comp_comunicacao, m.comp_autonomia, m.comp_colaboracao, m.comp_cultura].map(v=>v!=null?v:5);
+    const sucessor = m.sucessor_id ? (m.sucessor_id===EU_ID ? 'Eu (Fábio)' : (STATE.equipe.find(x=>x.id===m.sucessor_id)?.nome || '—')) : 'Nenhum indicado';
+    const prontidaoLabel = { imediato:'Pronto agora', '6_12_meses':'6-12 meses', mais_1_ano:'Mais de 1 ano' };
+    return `
+    <div class="reportPage" style="max-width:100%;">
+      <div class="repHead">
+        <div><h2>${m.nome}</h2><div class="repSub">${m.cargo||''} · Talento</div></div>
+        <div class="repPeriodo"><b>Potencial: ${m.potencial || 'médio'}</b></div>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="flex:1;min-width:220px;">${radarSVGClaro(vals)}</div>
+        <div style="flex:1;min-width:200px;">
+          <div class="repSection" style="margin-top:0;">
+            <h4>Plano de sucessão</h4>
+            <div class="repItem" style="border:none;">Sucessor: <b>${sucessor}</b></div>
+            ${m.sucessor_id ? `<div class="repItem" style="border:none;">Prontidão: ${prontidaoLabel[m.sucessor_prontidao] || '—'}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  preview.innerHTML = capa + paginasIndividuais;
+  preview.style.display = 'block';
+  setTimeout(()=> window.print(), 200);
+}
+
 
 /* ======================= MINHAS COMPETÊNCIAS ======================= */
 function atualizarRadarMeu(){
