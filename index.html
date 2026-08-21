@@ -224,10 +224,11 @@
   .repRankTable td{padding:7px 8px;border-bottom:1px solid #eef0f2;}
   @media print{
     body *{visibility:hidden;}
-    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *, #pdfTalentoPreview, #pdfTalentoPreview *{visibility:visible;}
+    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *, #pdfTalentoPreview, #pdfTalentoPreview *, #pdfEquipePreview, #pdfEquipePreview *{visibility:visible;}
     #relatorioPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfAtasPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfTalentoPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
+    #pdfEquipePreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     .reportPage{box-shadow:none;border-radius:0;page-break-after:always;max-width:100%;}
     .reportPage:last-child{page-break-after:auto;}
   }
@@ -308,9 +309,13 @@
     <section class="view" id="view-equipe">
       <div class="pageHead">
         <div><h2>Equipe</h2><p>Cadastro, objetivo e observações de cada colaborador</p></div>
-        <button class="btn btn-primary btn-sm" onclick="openMembroModal()">+ Membro</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="gerarPdfEquipe('todos')">🖨️ PDF de todos</button>
+          <button class="btn btn-primary btn-sm" onclick="openMembroModal()">+ Membro</button>
+        </div>
       </div>
       <div class="grid grid-cards" id="equipeCards"></div>
+      <div id="pdfEquipePreview"></div>
     </section>
 
     <!-- ---------- REUNIÕES ---------- -->
@@ -1004,9 +1009,46 @@ function renderEquipe(){
       ${blocoSalario(m)}
       <div class="mcActions">
         <button class="btn btn-ghost btn-sm" onclick="openMembroModal('${m.id}')">Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="gerarPdfEquipe('${m.id}')">🖨️ PDF</button>
       </div>
     </div>`;
   }).join('');
+}
+
+function cardEquipePdfHtml(m){
+  const tier = tierFromScore(scoreMembro(m.id));
+  const cor = tier==='green' ? '#1D9E75' : tier==='red' ? '#C0392B' : '#E67E22';
+  return `
+  <div style="background:#fff;border-radius:10px;border-left:6px solid ${cor};box-shadow:0 2px 10px rgba(0,0,0,.08);padding:18px 22px;margin-bottom:16px;break-inside:avoid;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <h3 style="margin:0;font-family:'Barlow Condensed';font-size:22px;color:#0F1F35;text-transform:none;letter-spacing:0;">${m.nome}</h3>
+      <span style="font-size:11.5px;color:#8b93a1;">${m.cargo||''}${m.data_admissao? ' · desde '+fmtDate(m.data_admissao) : ''}</span>
+    </div>
+    ${(m.perfil_atual || m.alinhamento_cultural) ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      ${m.perfil_atual ? `<span style="background:#e8f0fe;color:#2D7DD2;font-size:11px;font-weight:700;padding:4px 11px;border-radius:14px;">🧩 ${m.perfil_atual}</span>` : ''}
+      ${m.alinhamento_cultural ? `<span style="background:#e5f6ef;color:#1D9E75;font-size:11px;font-weight:700;padding:4px 11px;border-radius:14px;">${m.alinhamento_cultural}</span>` : ''}
+    </div>` : ''}
+    ${m.objetivo ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid #eef0f2;font-size:13px;color:#2c3948;line-height:1.6;">${m.objetivo}</div>` : ''}
+    ${m.observacoes ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #eef0f2;font-size:13px;color:#2c3948;line-height:1.6;">📌 ${m.observacoes}</div>` : ''}
+    ${m.proximo_feedback ? `<div style="margin-top:10px;font-size:11.5px;color:#8b93a1;">🗓 Próximo feedback: ${fmtDate(m.proximo_feedback)}</div>` : ''}
+  </div>`;
+}
+
+function gerarPdfEquipe(alvo){
+  const membros = alvo === 'todos' ? STATE.equipe : STATE.equipe.filter(m=>m.id===alvo);
+  if(membros.length===0){ toast('Nenhum colaborador encontrado.', true); return; }
+  const preview = document.getElementById('pdfEquipePreview');
+  const cards = membros.map(m=>cardEquipePdfHtml(m)).join('');
+  preview.innerHTML = `
+  <div class="reportPage" style="max-width:100%;">
+    <div class="repHead">
+      <div><h2>Gestão à Vista</h2><div class="repSub">${alvo==='todos' ? 'Perfil da Equipe' : membros[0].nome}</div></div>
+      <div class="repPeriodo"><b>${fmtDate(todayISO())}</b>Gerado em</div>
+    </div>
+    ${cards}
+  </div>`;
+  preview.style.display = 'block';
+  setTimeout(()=> window.print(), 200);
 }
 
 function blocoSalario(m){
