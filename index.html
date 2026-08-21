@@ -1071,8 +1071,29 @@ function renderReunioesView(){
       </div>
       ${r.ata_gerada? `<div class="insightBox" style="margin-top:10px;">${r.ata_gerada}</div>` : ''}
       ${r.proxima_reuniao? `<div style="margin-top:8px;font-size:12px;color:var(--text-dim);">🗓 Próxima reunião: <span class="mono">${fmtDate(r.proxima_reuniao)}</span></div>` : ''}
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%;" onclick="copiarAtaHistorico('${r.id}')">📋 Copiar ata</button>
     </div>`;
   }).join('');
+}
+
+function copiarAtaHistorico(reuniaoId){
+  const r = STATE.reunioes.find(x=>x.id===reuniaoId);
+  if(!r){ toast('Reunião não encontrada.', true); return; }
+  const m = STATE.equipe.find(x=>x.id===r.membro_id);
+  const acoes = STATE.acoes.filter(a=>a.reuniao_id===reuniaoId).map(a=>`- ${a.descricao}`).join('\n');
+  const texto = `📋 ATA DE REUNIÃO — ${m? m.nome : ''}
+Data: ${fmtDate(r.data_reuniao)}
+
+${r.ata_gerada || ''}
+
+AÇÕES COMBINADAS
+${acoes || 'Nenhuma ação registrada.'}
+
+${r.proxima_reuniao ? `Próxima reunião: ${fmtDate(r.proxima_reuniao)}` : ''}`;
+
+  navigator.clipboard.writeText(texto.trim())
+    .then(()=> toast('Ata copiada — já pode colar no WhatsApp ou e-mail.'))
+    .catch(()=> toast('Não consegui copiar automaticamente. Selecione o texto manualmente.', true));
 }
 
 let insightsGerados = null;
@@ -1571,7 +1592,19 @@ function setPeriodoRapido(tipo){
 }
 function initRelatoriosDefaults(){
   setPeriodoRapido('mes');
-  document.getElementById('repMembro').innerHTML = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  document.getElementById('repMembro').innerHTML = `<option value="${EU_ID}">Eu (Fábio)</option>` +
+    STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+}
+
+function proximaAcaoMembro(membroId){
+  const candidatos = [];
+  const m = STATE.equipe.find(x=>x.id===membroId);
+  if(m && m.proximo_feedback) candidatos.push({ data: m.proximo_feedback, label: 'Feedback' });
+  STATE.reunioes.filter(r=>r.membro_id===membroId && r.proxima_reuniao).forEach(r=>{
+    candidatos.push({ data: r.proxima_reuniao, label: 'Reunião' });
+  });
+  const futuros = candidatos.filter(c=>c.data>=todayISO()).sort((a,b)=>a.data.localeCompare(b.data));
+  return futuros[0] || null;
 }
 
 function dadosPeriodoMembro(membroId, ini, fim){
@@ -1586,6 +1619,7 @@ function dadosPeriodoMembro(membroId, ini, fim){
 
 function blocoRelatorioMembro(membro, ini, fim){
   const d = dadosPeriodoMembro(membro.id, ini, fim);
+  const proxAcao = proximaAcaoMembro(membro.id);
   const listaOuVazio = (arr, render, vazio) => arr.length ? arr.map(render).join('') : `<div class="repEmpty">${vazio}</div>`;
   return `
   <div class="reportPage">
@@ -1598,6 +1632,10 @@ function blocoRelatorioMembro(membro, ini, fim){
       <div class="repKpi"><div class="n">${d.positivas.length}</div><div class="l">Ações positivas</div></div>
       <div class="repKpi"><div class="n">${d.acoesConcluidas.length}</div><div class="l">Ações concluídas</div></div>
       <div class="repKpi"><div class="n">${d.reunioes.length}</div><div class="l">Reuniões 1:1</div></div>
+    </div>
+    <div class="repSection" style="margin-top:0;">
+      <h4>Próxima ação</h4>
+      <div class="repItem" style="border:none;">${proxAcao ? `${proxAcao.label} agendado(a) para ${fmtDate(proxAcao.data)}` : 'Nenhuma próxima ação com data marcada.'}</div>
     </div>
     ${membro.objetivo ? `<div class="repSection"><h4>Objetivo / plano de desenvolvimento</h4><div class="repItem" style="border:none;">${membro.objetivo}</div></div>` : ''}
     <div class="repSection">
@@ -1615,6 +1653,42 @@ function blocoRelatorioMembro(membro, ini, fim){
   </div>`;
 }
 
+function blocoRelatorioFabio(ini, fim){
+  const marcosPeriodo = STATE.marcos.filter(m=>m.data_marco>=ini && m.data_marco<=fim);
+  const conversasPeriodo = STATE_CONVERSAS.filter(c=>c.data_conversa>=ini && c.data_conversa<=fim);
+  const meusProjetos = STATE.projetos.filter(p=>(p.pessoas_envolvidas||[]).includes(EU_ID));
+  const listaOuVazio = (arr, render, vazio) => arr.length ? arr.map(render).join('') : `<div class="repEmpty">${vazio}</div>`;
+  return `
+  <div class="reportPage">
+    <div class="repHead">
+      <div><h2>Eu (Fábio)</h2><div class="repSub">Coordenador 4PL · Fechamento de período</div></div>
+      <div class="repPeriodo"><b>${fmtDate(ini)} — ${fmtDate(fim)}</b>Período avaliado</div>
+    </div>
+    <div class="repKpis">
+      <div class="repKpi"><div class="n">${marcosPeriodo.length}</div><div class="l">Marcos no período</div></div>
+      <div class="repKpi"><div class="n">${meusProjetos.length}</div><div class="l">Projetos em condução</div></div>
+      <div class="repKpi"><div class="n">${conversasPeriodo.length}</div><div class="l">Conversas de desenvolvimento</div></div>
+      <div class="repKpi"><div class="n">${STATE.pilares.length}</div><div class="l">Pilares acompanhados</div></div>
+    </div>
+    <div class="repSection">
+      <h4>Pilares rumo à promoção</h4>
+      ${listaOuVazio(STATE.pilares, p=>`<div class="repItem">${p.nome} — ${p.percentual}%</div>`, 'Nenhum pilar cadastrado.')}
+    </div>
+    <div class="repSection">
+      <h4>Marcos conquistados no período</h4>
+      ${listaOuVazio(marcosPeriodo, m=>`<div class="repItem"><span class="d">${fmtDate(m.data_marco)}</span>${m.marco}</div>`, 'Nenhum marco registrado no período.')}
+    </div>
+    <div class="repSection">
+      <h4>Projetos que estou conduzindo</h4>
+      ${listaOuVazio(meusProjetos, p=>`<div class="repItem">${p.nome}${p.setor? ' · '+p.setor : ''} — ${STATUS_PROJETO_LABEL[p.status]}</div>`, 'Nenhum projeto vinculado ao meu nome.')}
+    </div>
+    <div class="repSection">
+      <h4>Conversas de desenvolvimento no período</h4>
+      ${listaOuVazio(conversasPeriodo, c=>`<div class="repItem"><span class="d">${fmtDate(c.data_conversa)}</span>${c.com_quem}: ${c.resumo||'—'}</div>`, 'Nenhuma conversa registrada no período.')}
+    </div>
+  </div>`;
+}
+
 function gerarRelatorio(){
   const ini = document.getElementById('repInicio').value;
   const fim = document.getElementById('repFim').value;
@@ -1626,9 +1700,13 @@ function gerarRelatorio(){
 
   if(tipo==='individual'){
     const membroId = document.getElementById('repMembro').value;
-    const membro = STATE.equipe.find(m=>m.id===membroId);
-    if(!membro){ toast('Selecione um colaborador.', true); return; }
-    preview.innerHTML = blocoRelatorioMembro(membro, ini, fim);
+    if(membroId === EU_ID){
+      preview.innerHTML = blocoRelatorioFabio(ini, fim);
+    } else {
+      const membro = STATE.equipe.find(m=>m.id===membroId);
+      if(!membro){ toast('Selecione um colaborador.', true); return; }
+      preview.innerHTML = blocoRelatorioMembro(membro, ini, fim);
+    }
   } else {
     const ranking = STATE.equipe.map(m=>({m, score: dadosPeriodoMembro(m.id, ini, fim).scorePeriodo}))
       .sort((a,b)=>b.score-a.score);
@@ -1643,7 +1721,7 @@ function gerarRelatorio(){
         ${ranking.map(r=>`<tr><td>${r.m.nome}</td><td>${r.m.cargo||''}</td><td>${r.score>0?'+':''}${r.score}</td></tr>`).join('')}
       </table>
     </div>`;
-    preview.innerHTML = capa + ranking.map(r=>blocoRelatorioMembro(r.m, ini, fim)).join('');
+    preview.innerHTML = capa + blocoRelatorioFabio(ini, fim) + ranking.map(r=>blocoRelatorioMembro(r.m, ini, fim)).join('');
   }
 
   preview.style.display = 'block';
