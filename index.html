@@ -700,6 +700,33 @@
   </div>
 </div>
 
+<!-- ================= MODAL EVENTOS DE DESENVOLVIMENTO ================= -->
+<div class="modalBg" id="modalEventos">
+  <div class="modal">
+    <div class="modalHead"><h3 id="modalEventosTitle">Eventos de desenvolvimento</h3><button class="xClose" onclick="closeModal('modalEventos')">✕</button></div>
+    <input type="hidden" id="evMembroId">
+
+    <div class="row2">
+      <div class="field">
+        <label>Tipo</label>
+        <select id="evTipo">
+          <option value="curso">Curso</option>
+          <option value="aula">Aula</option>
+          <option value="podcast">Podcast</option>
+          <option value="viagem">Viagem</option>
+          <option value="palestra">Palestra/Evento</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+      <div class="field"><label>Data</label><input type="date" id="evData"></div>
+    </div>
+    <div class="field"><label>Descrição</label><textarea id="evDescricao" rows="2" placeholder="Ex: Curso de Excel avançado, Alura"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;" onclick="salvarEvento()">+ Adicionar evento</button>
+
+    <div id="eventosLista" style="margin-top:16px;"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ================= MODAL PILAR ================= -->
@@ -782,7 +809,7 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', pilares: [], marcos: [], projetos: [], user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', pilares: [], marcos: [], projetos: [], eventos: [], user: null };
 let impactoSel = 'medio';
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
@@ -879,7 +906,7 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt, cu, pl, mc, pj] = await Promise.all([
+  const [eq, re, ac, pt, cu, pl, mc, pj, ev] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
@@ -887,7 +914,8 @@ async function carregarTudo(){
     sb.from('fp_gestao_cultura').select('*').maybeSingle(),
     sb.from('fp_gestao_meus_pilares').select('*').order('nome'),
     sb.from('fp_gestao_meus_marcos').select('*').order('data_marco', {ascending:false}),
-    sb.from('fp_gestao_projetos').select('*').order('created_at', {ascending:false})
+    sb.from('fp_gestao_projetos').select('*').order('created_at', {ascending:false}),
+    sb.from('fp_gestao_eventos_desenv').select('*').order('data_evento', {ascending:false})
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
@@ -898,6 +926,7 @@ async function carregarTudo(){
   STATE.pilares = pl.data || [];
   STATE.marcos = mc.data || [];
   STATE.projetos = pj.data || [];
+  STATE.eventos = ev.data || [];
   fillMembroSelects();
   await carregarMinhasConversas();
 }
@@ -1006,13 +1035,66 @@ function renderEquipe(){
       <div class="mcObj">${m.objetivo ? m.objetivo : '<span style="color:var(--text-faint)">Sem objetivo definido</span>'}</div>
       ${m.observacoes ? `<div class="mcObj">📌 ${m.observacoes}</div>` : ''}
       ${m.proximo_feedback ? `<div class="mcMeta" style="margin-top:8px;"><span>🗓 Próximo feedback: <span class="mono">${fmtDate(m.proximo_feedback)}</span></span></div>` : ''}
+      ${(() => { const n = STATE.eventos.filter(e=>e.membro_id===m.id).length; return n ? `<div class="mcMeta" style="margin-top:6px;"><span>🎓 ${n} evento(s) de desenvolvimento no ano</span></div>` : ''; })()}
       ${blocoSalario(m)}
       <div class="mcActions">
         <button class="btn btn-ghost btn-sm" onclick="openMembroModal('${m.id}')">Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="gerarPdfEquipe('${m.id}')">🖨️ PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirEventosModal('${m.id}')">🎓 Eventos</button>
       </div>
     </div>`;
   }).join('');
+}
+
+const EVENTO_LABEL = { curso:'📘 Curso', aula:'📚 Aula', podcast:'🎧 Podcast', viagem:'✈️ Viagem', palestra:'🎤 Palestra/Evento', outro:'⭐ Outro' };
+
+function abrirEventosModal(membroId){
+  const m = STATE.equipe.find(x=>x.id===membroId);
+  if(!m) return;
+  document.getElementById('evMembroId').value = membroId;
+  document.getElementById('modalEventosTitle').textContent = 'Eventos de desenvolvimento — ' + m.nome;
+  document.getElementById('evData').value = todayISO();
+  document.getElementById('evTipo').value = 'curso';
+  document.getElementById('evDescricao').value = '';
+  renderEventosLista(membroId);
+  openModal('modalEventos');
+}
+
+function renderEventosLista(membroId){
+  const wrap = document.getElementById('eventosLista');
+  const lista = STATE.eventos.filter(e=>e.membro_id===membroId).sort((a,b)=>b.data_evento.localeCompare(a.data_evento));
+  if(lista.length===0){ wrap.innerHTML = emptyState('Nenhum evento registrado ainda.'); return; }
+  wrap.innerHTML = lista.map(e=>`
+    <div class="acaoChip" style="justify-content:space-between;">
+      <span><b>${EVENTO_LABEL[e.tipo] || e.tipo}</b> · <span class="mono">${fmtDate(e.data_evento)}</span> — ${e.descricao || ''}</span>
+      <button class="eyeBtn" onclick="excluirEvento('${e.id}', '${membroId}')" title="Excluir">🗑️</button>
+    </div>`).join('');
+}
+
+async function salvarEvento(){
+  const membroId = document.getElementById('evMembroId').value;
+  const payload = {
+    membro_id: membroId,
+    tipo: document.getElementById('evTipo').value,
+    data_evento: document.getElementById('evData').value || todayISO(),
+    descricao: document.getElementById('evDescricao').value.trim()
+  };
+  const { error } = await sb.from('fp_gestao_eventos_desenv').insert(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  document.getElementById('evDescricao').value = '';
+  await carregarTudo();
+  renderEventosLista(membroId);
+  renderEquipe();
+  toast('Evento adicionado.');
+}
+
+async function excluirEvento(id, membroId){
+  const { error } = await sb.from('fp_gestao_eventos_desenv').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarTudo();
+  renderEventosLista(membroId);
+  renderEquipe();
+  toast('Evento excluído.');
 }
 
 function cardEquipePdfHtml(m){
@@ -1031,6 +1113,7 @@ function cardEquipePdfHtml(m){
     ${m.objetivo ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid #eef0f2;font-size:13px;color:#2c3948;line-height:1.6;">${m.objetivo}</div>` : ''}
     ${m.observacoes ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #eef0f2;font-size:13px;color:#2c3948;line-height:1.6;">📌 ${m.observacoes}</div>` : ''}
     ${m.proximo_feedback ? `<div style="margin-top:10px;font-size:11.5px;color:#8b93a1;">🗓 Próximo feedback: ${fmtDate(m.proximo_feedback)}</div>` : ''}
+    ${(() => { const evts = STATE.eventos.filter(e=>e.membro_id===m.id); return evts.length ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid #eef0f2;"><div style="font-size:10.5px;text-transform:uppercase;color:#8b93a1;margin-bottom:6px;">Eventos de desenvolvimento</div>${evts.map(e=>`<div style="font-size:12px;color:#2c3948;padding:2px 0;">${EVENTO_LABEL[e.tipo]||e.tipo} · ${fmtDate(e.data_evento)} — ${e.descricao||''}</div>`).join('')}</div>` : ''; })()}
   </div>`;
 }
 
