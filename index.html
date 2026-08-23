@@ -727,6 +727,28 @@
   </div>
 </div>
 
+<!-- ================= MODAL EDITAR CONVERSA ================= -->
+<div class="modalBg" id="modalEditarConversa">
+  <div class="modal">
+    <div class="modalHead"><h3>Editar conversa</h3><button class="xClose" onclick="closeModal('modalEditarConversa')">✕</button></div>
+    <input type="hidden" id="edConvId">
+    <div class="row2">
+      <div class="field">
+        <label>Com quem</label>
+        <select id="edConvComQuem">
+          <option value="Gustavo Bellintani">Gustavo (gerente)</option>
+          <option value="Tatiana Kimura">Tatiana (diretora)</option>
+          <option value="Clemente">Clemente (cliente)</option>
+          <option value="Outro">Outro</option>
+        </select>
+      </div>
+      <div class="field"><label>Data</label><input type="date" id="edConvData"></div>
+    </div>
+    <div class="field"><label>Resumo</label><textarea id="edConvResumo" rows="8"></textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="salvarEdicaoConversa()">Salvar alterações</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ================= MODAL PILAR ================= -->
@@ -2400,7 +2422,45 @@ function renderHistoricoConversas(){
         <span class="mono" style="color:var(--text-dim);font-size:12px;">${fmtDate(c.data_conversa)}</span>
       </div>
       ${c.resumo ? `<div class="insightBox" style="margin-top:10px;">${c.resumo}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="abrirEdicaoConversa('${c.id}')">✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirConversa('${c.id}')">🗑️</button>
+      </div>
     </div>`).join('');
+}
+
+function abrirEdicaoConversa(id){
+  const c = STATE_CONVERSAS.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('edConvId').value = id;
+  document.getElementById('edConvComQuem').value = c.com_quem || '';
+  document.getElementById('edConvData').value = c.data_conversa || '';
+  document.getElementById('edConvResumo').value = c.resumo || '';
+  openModal('modalEditarConversa');
+}
+
+async function salvarEdicaoConversa(){
+  const id = document.getElementById('edConvId').value;
+  const payload = {
+    com_quem: document.getElementById('edConvComQuem').value,
+    data_conversa: document.getElementById('edConvData').value || todayISO(),
+    resumo: document.getElementById('edConvResumo').value.trim()
+  };
+  const { error } = await sb.from('fp_gestao_minhas_conversas').update(payload).eq('id', id);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalEditarConversa');
+  await carregarMinhasConversas();
+  renderHistoricoConversas();
+  toast('Conversa atualizada.');
+}
+
+async function excluirConversa(id){
+  if(!confirm('Excluir esta conversa?')) return;
+  const { error } = await sb.from('fp_gestao_minhas_conversas').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarMinhasConversas();
+  renderHistoricoConversas();
+  toast('Conversa excluída.');
 }
 
 /* ======================= DITADO POR VOZ ======================= */
