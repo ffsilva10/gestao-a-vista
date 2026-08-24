@@ -328,7 +328,11 @@
       <div class="panel">
         <h3>Nova reunião</h3>
         <div class="row2">
-          <div class="field"><label>Colaborador</label><select id="reMembro"></select></div>
+          <div class="field">
+            <label>Com quem</label>
+            <select id="reMembro" onchange="toggleReOutroField()"></select>
+            <input type="text" id="reOutroNome" placeholder="Digite o nome" style="display:none;margin-top:8px;">
+          </div>
           <div class="field"><label>Data da reunião</label><input type="date" id="reData"></div>
         </div>
         <div class="field">
@@ -967,10 +971,33 @@ async function salvarCultura(){
 
 function fillMembroSelects(){
   const opts = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
-  document.getElementById('reMembro').innerHTML = opts;
+  document.getElementById('reMembro').innerHTML = opts +
+    `<optgroup label="Outras pessoas">
+      <option value="__GUSTAVO__">Gustavo Bellintani (gerente)</option>
+      <option value="__TATIANA__">Tatiana Kimura (diretora)</option>
+      <option value="__OUTRO__">Outro (digitar nome)</option>
+    </optgroup>`;
   document.getElementById('ptMembro').innerHTML = opts;
   document.getElementById('filtroAcoesMembro').innerHTML = '<option value="">Todos colaboradores</option>' + opts;
   document.getElementById('filtroProjetosMembro').innerHTML = '<option value="">Todos colaboradores</option>' + `<option value="${EU_ID}">Eu (Fábio)</option>` + opts;
+}
+
+function toggleReOutroField(){
+  const v = document.getElementById('reMembro').value;
+  document.getElementById('reOutroNome').style.display = (v==='__OUTRO__') ? 'block' : 'none';
+}
+
+function nomeSelecaoReuniao(){
+  const v = document.getElementById('reMembro').value;
+  if(v==='__GUSTAVO__') return 'Gustavo Bellintani';
+  if(v==='__TATIANA__') return 'Tatiana Kimura';
+  if(v==='__OUTRO__') return document.getElementById('reOutroNome').value.trim();
+  const m = STATE.equipe.find(x=>x.id===v);
+  return m ? m.nome : '';
+}
+function ehMembroEquipeSelecionado(){
+  const v = document.getElementById('reMembro').value;
+  return v && v!=='__GUSTAVO__' && v!=='__TATIANA__' && v!=='__OUTRO__';
 }
 
 /* ======================= INÍCIO ======================= */
@@ -1012,8 +1039,7 @@ function renderProximasObrigacoes(){
   });
   STATE.reunioes.forEach(r=>{
     if(r.proxima_reuniao){
-      const m = STATE.equipe.find(x=>x.id===r.membro_id);
-      itens.push({ data: r.proxima_reuniao, tipo: '📝 Reunião', desc: m? m.nome : '—', cor: 'var(--blue)' });
+      itens.push({ data: r.proxima_reuniao, tipo: '📝 Reunião', desc: nomeDaReuniao(r), cor: 'var(--blue)' });
     }
   });
   STATE.projetos.forEach(p=>{
@@ -1285,16 +1311,20 @@ async function excluirMembro(){
 }
 
 /* ======================= REUNIÕES ======================= */
+function nomeDaReuniao(r){
+  if(r.membro_id){ const m = STATE.equipe.find(x=>x.id===r.membro_id); return m ? m.nome : '—'; }
+  return r.membro_nome_manual || '—';
+}
+
 function renderReunioesView(){
   document.getElementById('reResultado').style.display = 'none';
   const wrap = document.getElementById('historicoReunioes');
   if(STATE.reunioes.length===0){ wrap.innerHTML = emptyState('Nenhuma reunião registrada ainda.'); return; }
   wrap.innerHTML = STATE.reunioes.map(r=>{
-    const m = STATE.equipe.find(x=>x.id===r.membro_id);
     return `
     <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
       <div style="display:flex;justify-content:space-between;">
-        <strong>${m? m.nome : '—'}</strong>
+        <strong>${nomeDaReuniao(r)}</strong>
         <span class="mono" style="color:var(--text-dim);font-size:12px;">${fmtDate(r.data_reuniao)}</span>
       </div>
       ${r.ata_gerada? `<div class="insightBox" style="margin-top:10px;">${r.ata_gerada}</div>` : ''}
@@ -1311,9 +1341,8 @@ function renderReunioesView(){
 function copiarAtaHistorico(reuniaoId){
   const r = STATE.reunioes.find(x=>x.id===reuniaoId);
   if(!r){ toast('Reunião não encontrada.', true); return; }
-  const m = STATE.equipe.find(x=>x.id===r.membro_id);
   const acoes = STATE.acoes.filter(a=>a.reuniao_id===reuniaoId).map(a=>`- ${a.descricao}`).join('\n');
-  const texto = `📋 ATA DE REUNIÃO — ${m? m.nome : ''}
+  const texto = `📋 ATA DE REUNIÃO — ${nomeDaReuniao(r)}
 Data: ${fmtDate(r.data_reuniao)}
 
 ${r.ata_gerada || ''}
@@ -1417,15 +1446,21 @@ async function gerarInsights(){
   const membroId = document.getElementById('reMembro').value;
   const data = document.getElementById('reData').value;
   const transcricao = document.getElementById('reTranscricao').value.trim();
-  if(!membroId){ toast('Cadastre e selecione um colaborador primeiro.', true); return; }
+  const nomeAlvo = nomeSelecaoReuniao();
+  if(!membroId){ toast('Selecione com quem foi a reunião.', true); return; }
+  if(membroId==='__OUTRO__' && !nomeAlvo){ toast('Digite o nome da pessoa.', true); return; }
   if(!transcricao){ toast('Cole a transcrição da reunião.', true); return; }
-  const membro = STATE.equipe.find(m=>m.id===membroId);
+
+  const ehEquipe = ehMembroEquipeSelecionado();
+  const membro = ehEquipe ? STATE.equipe.find(m=>m.id===membroId) : { nome: nomeAlvo, cargo: '', objetivo: '', percepcao_inicial: '' };
 
   const btn = document.getElementById('btnGerarInsights');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Gerando com IA...';
 
   try{
-    const historicoAnterior = STATE.reunioes.filter(r=>r.membro_id===membroId).slice(0,3).map(r=>r.insights).filter(Boolean);
+    const historicoAnterior = ehEquipe
+      ? STATE.reunioes.filter(r=>r.membro_id===membroId).slice(0,3).map(r=>r.insights).filter(Boolean)
+      : STATE.reunioes.filter(r=>r.membro_nome_manual===nomeAlvo).slice(0,3).map(r=>r.insights).filter(Boolean);
 
     const { data: fnData, error } = await sb.functions.invoke('gestao-gerar-insights', {
       body: {
@@ -1444,7 +1479,7 @@ async function gerarInsights(){
     insightsGerados = fnData;
     document.getElementById('outAta').textContent = fnData.ata || '';
     document.getElementById('outInsights').textContent = fnData.insights || '';
-    if(fnData.perfil_sugerido || fnData.alinhamento_cultural){
+    if(ehEquipe && (fnData.perfil_sugerido || fnData.alinhamento_cultural)){
       document.getElementById('outInsights').textContent +=
         `\n\n🧩 Perfil sugerido: ${fnData.perfil_sugerido || '—'}\n🧭 Alinhamento cultural: ${fnData.alinhamento_cultural || '—'}`;
     }
@@ -1497,9 +1532,12 @@ async function salvarReuniao(){
   const data = document.getElementById('reData').value;
   const transcricao = document.getElementById('reTranscricao').value.trim();
   const proxReuniao = document.getElementById('outProxReuniao').value || null;
+  const ehEquipe = ehMembroEquipeSelecionado();
+  const nomeAlvo = nomeSelecaoReuniao();
 
   const { data: reuniaoRow, error } = await sb.from('fp_gestao_reunioes').insert({
-    membro_id: membroId,
+    membro_id: ehEquipe ? membroId : null,
+    membro_nome_manual: ehEquipe ? null : nomeAlvo,
     data_reuniao: data,
     transcricao_bruta: transcricao,
     ata_gerada: insightsGerados.ata,
@@ -1509,7 +1547,7 @@ async function salvarReuniao(){
 
   if(error){ toast('Erro ao salvar reunião: ' + error.message, true); return; }
 
-  if(insightsGerados.perfil_sugerido || insightsGerados.alinhamento_cultural){
+  if(ehEquipe && (insightsGerados.perfil_sugerido || insightsGerados.alinhamento_cultural)){
     await sb.from('fp_gestao_equipe').update({
       perfil_atual: insightsGerados.perfil_sugerido || null,
       alinhamento_cultural: insightsGerados.alinhamento_cultural || null
@@ -1519,7 +1557,7 @@ async function salvarReuniao(){
   const checks = document.querySelectorAll('#outAcoes input[type=checkbox]:checked');
   const acoesTexto = (insightsGerados.acoes || []);
   const acoesParaSalvar = Array.from(checks).map(c => acoesTexto[c.dataset.idx]).filter(Boolean);
-  if(acoesParaSalvar.length){
+  if(ehEquipe && acoesParaSalvar.length){
     const rows = acoesParaSalvar.map(descricao => ({
       membro_id: membroId, reuniao_id: reuniaoRow.id, descricao, status: 'pendente'
     }));
@@ -1528,6 +1566,8 @@ async function salvarReuniao(){
   }
 
   document.getElementById('reTranscricao').value = '';
+  document.getElementById('reOutroNome').value = '';
+  document.getElementById('reOutroNome').style.display = 'none';
   document.getElementById('reResultado').style.display = 'none';
   insightsGerados = null;
   await carregarTudo();
