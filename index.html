@@ -1053,7 +1053,7 @@ function renderEquipe(){
       <div class="mcTop">
         <div><div class="mcName">${m.nome}</div><div class="mcCargo">${m.cargo||''} ${m.data_admissao? '· desde '+fmtDate(m.data_admissao):''}</div></div>
       </div>
-      ${m.perfil_atual ? `<div class="mcMeta" style="margin-top:8px;"><span class="badge" style="background:rgba(76,141,255,.15);color:var(--blue);">🧩 ${m.perfil_atual}</span>${m.alinhamento_cultural ? ` <span class="badge" style="background:rgba(63,178,127,.12);color:var(--green);">${m.alinhamento_cultural}</span>` : ''}</div>` : ''}
+      ${m.perfil_atual ? `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:8px;">${m.perfil_atual ? `<span class="badge" style="background:rgba(76,141,255,.15);color:var(--blue);">🧩 ${m.perfil_atual}</span>` : ''}${m.alinhamento_cultural ? `<span class="badge" style="background:rgba(63,178,127,.12);color:var(--green);text-transform:none;letter-spacing:0;white-space:normal;line-height:1.4;">${m.alinhamento_cultural}</span>` : ''}</div>` : ''}
       <div class="mcObj">${m.objetivo ? m.objetivo : '<span style="color:var(--text-faint)">Sem objetivo definido</span>'}</div>
       ${m.observacoes ? `<div class="mcObj">📌 ${m.observacoes}</div>` : ''}
       ${m.proximo_feedback ? `<div class="mcMeta" style="margin-top:8px;"><span>🗓 Próximo feedback: <span class="mono">${fmtDate(m.proximo_feedback)}</span></span></div>` : ''}
