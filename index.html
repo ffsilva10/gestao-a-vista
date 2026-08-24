@@ -1063,6 +1063,7 @@ function renderEquipe(){
         <button class="btn btn-ghost btn-sm" onclick="openMembroModal('${m.id}')">Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="gerarPdfEquipe('${m.id}')">🖨️ PDF</button>
         <button class="btn btn-ghost btn-sm" onclick="abrirEventosModal('${m.id}')">🎓 Eventos</button>
+        <button class="btn btn-ghost btn-sm" onclick="atualizarInsightsIA('${m.id}', this)">🤖 Insights IA</button>
       </div>
     </div>`;
   }).join('');
@@ -1154,6 +1155,52 @@ function gerarPdfEquipe(alvo){
   </div>`;
   preview.style.display = 'block';
   setTimeout(()=> window.print(), 200);
+}
+
+async function atualizarInsightsIA(membroId, btn){
+  const m = STATE.equipe.find(x=>x.id===membroId);
+  if(!m) return;
+
+  const textoBase = `Objetivo/plano de desenvolvimento: ${m.objetivo || 'não informado'}
+Percepção inicial do gestor: ${m.percepcao_inicial || 'não informado'}
+Observações gerais atualizadas: ${m.observacoes || 'não informado'}`;
+
+  const historico = STATE.reunioes.filter(r=>r.membro_id===membroId).slice(0,3).map(r=>r.insights).filter(Boolean);
+
+  const textoOriginal = btn.textContent;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Gerando...';
+
+  try{
+    const { data: fnData, error } = await sb.functions.invoke('gestao-gerar-insights', {
+      body: {
+        transcricao: textoBase,
+        nome_membro: m.nome,
+        cargo_membro: m.cargo,
+        objetivo_membro: m.objetivo,
+        percepcao_inicial: m.percepcao_inicial,
+        cultura: STATE.cultura,
+        insights_anteriores: historico,
+        data_reuniao: todayISO()
+      }
+    });
+    if(error) throw error;
+
+    await sb.from('fp_gestao_equipe').update({
+      perfil_atual: fnData.perfil_sugerido || m.perfil_atual || null,
+      alinhamento_cultural: fnData.alinhamento_cultural || m.alinhamento_cultural || null
+    }).eq('id', membroId);
+
+    await carregarTudo();
+    renderEquipe();
+    toast('Insights atualizados com base no cadastro atual.');
+  } catch(e){
+    let msg = e.message || String(e);
+    if(e.context && typeof e.context.json === 'function'){
+      try{ const body = await e.context.json(); if(body && body.error) msg = body.error; } catch(_e){}
+    }
+    toast('Erro ao atualizar insights: ' + msg, true);
+    btn.disabled = false; btn.textContent = textoOriginal;
+  }
 }
 
 function blocoSalario(m){
