@@ -185,6 +185,8 @@
   .blurVal{filter:blur(6px);transition:filter .15s;user-select:none;}
   .blurVal.show{filter:blur(0);}
   .eyeBtn{background:none;border:none;color:var(--text-faint);cursor:pointer;padding:2px 4px;font-size:13px;line-height:1;}
+  input:checked + #toggleRepertorioTrack{background:var(--amber);}
+  input:checked + #toggleRepertorioTrack + #toggleRepertorioKnob{transform:translateX(20px);}
   .eyeBtn:hover{color:var(--text);}
 
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#242a32;border:1px solid var(--line);
@@ -282,6 +284,7 @@
     <div class="navItem" data-view="meudesenvolvimento" onclick="goView('meudesenvolvimento')">🎯&nbsp; Meu Desenvolvimento</div>
     <div class="navItem" data-view="relatorios" onclick="goView('relatorios')">📄&nbsp; Relatórios</div>
     <div class="navItem" data-view="talento" onclick="goView('talento')">📐&nbsp; Talento</div>
+    <div class="navItem" data-view="repertorio" onclick="goView('repertorio')">💡&nbsp; Repertório</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
@@ -589,6 +592,40 @@
       </div>
     </section>
 
+    <!-- ---------- REPERTÓRIO ---------- -->
+    <section class="view" id="view-repertorio">
+      <div class="pageHead">
+        <div><h2>Repertório</h2><p>Insights do dia a dia — podcasts, cursos, leituras — que podem enriquecer suas análises</p></div>
+      </div>
+
+      <div class="panel" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <strong style="font-size:13.5px;">Usar Repertório nos Insights de IA</strong>
+          <p style="color:var(--text-dim);font-size:12px;margin:4px 0 0;">Quando ligado, suas anotações mais recentes entram como contexto extra nas análises da equipe e nas suas</p>
+        </div>
+        <label style="position:relative;display:inline-block;width:46px;height:26px;flex:none;">
+          <input type="checkbox" id="toggleRepertorioIA" onchange="salvarToggleRepertorio()" style="opacity:0;width:0;height:0;">
+          <span id="toggleRepertorioTrack" style="position:absolute;cursor:pointer;inset:0;background:var(--line);border-radius:26px;transition:.2s;"></span>
+          <span id="toggleRepertorioKnob" style="position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;"></span>
+        </label>
+      </div>
+
+      <div class="panel">
+        <h3>Nova anotação</h3>
+        <div class="row2">
+          <div class="field"><label>Fonte (opcional)</label><input type="text" id="repFonte" placeholder="Ex: podcast Data Hackers"></div>
+          <div class="field"><label>Data</label><input type="date" id="repData"></div>
+        </div>
+        <div class="field"><label>Insight / anotação</label><textarea id="repTexto" rows="3" placeholder="O que você ouviu, leu ou pensou que pode ser útil depois..."></textarea></div>
+        <button class="btn btn-primary" style="width:100%;" onclick="salvarRepertorio()">+ Adicionar ao Repertório</button>
+      </div>
+
+      <div class="panel">
+        <h3>Suas anotações</h3>
+        <div id="repertorioLista" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -836,7 +873,7 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', pilares: [], marcos: [], projetos: [], eventos: [], user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], user: null };
 let impactoSel = 'medio';
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
@@ -871,10 +908,15 @@ function goView(v){
   }
   if(v==='relatorios') initRelatoriosDefaults();
   if(v==='talento') renderTalento();
+  if(v==='repertorio') renderRepertorio();
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
+function repertorioParaIA(){
+  if(!STATE.usarRepertorioIA) return [];
+  return STATE.repertorio.slice(0,10).map(r=> r.fonte ? `[${r.fonte}] ${r.texto}` : r.texto);
+}
 function parseMoeda(str){
   if(!str) return null;
   str = String(str).trim();
@@ -933,7 +975,7 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt, cu, pl, mc, pj, ev] = await Promise.all([
+  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
@@ -942,7 +984,8 @@ async function carregarTudo(){
     sb.from('fp_gestao_meus_pilares').select('*').order('nome'),
     sb.from('fp_gestao_meus_marcos').select('*').order('data_marco', {ascending:false}),
     sb.from('fp_gestao_projetos').select('*').order('created_at', {ascending:false}),
-    sb.from('fp_gestao_eventos_desenv').select('*').order('data_evento', {ascending:false})
+    sb.from('fp_gestao_eventos_desenv').select('*').order('data_evento', {ascending:false}),
+    sb.from('fp_gestao_repertorio').select('*').order('data_nota', {ascending:false})
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
@@ -950,10 +993,12 @@ async function carregarTudo(){
   STATE.acoes = ac.data || [];
   STATE.pontuacoes = pt.data || [];
   STATE.cultura = cu.data ? cu.data.texto : '';
+  STATE.usarRepertorioIA = cu.data && cu.data.usar_repertorio_ia != null ? cu.data.usar_repertorio_ia : true;
   STATE.pilares = pl.data || [];
   STATE.marcos = mc.data || [];
   STATE.projetos = pj.data || [];
   STATE.eventos = ev.data || [];
+  STATE.repertorio = rp.data || [];
   fillMembroSelects();
   await carregarMinhasConversas();
 }
@@ -967,6 +1012,59 @@ async function salvarCultura(){
   if(error){ toast('Erro ao salvar cultura: ' + error.message, true); return; }
   STATE.cultura = texto;
   toast('Cultura salva.');
+}
+
+async function salvarToggleRepertorio(){
+  const valor = document.getElementById('toggleRepertorioIA').checked;
+  const { data: existente } = await sb.from('fp_gestao_cultura').select('id').maybeSingle();
+  let error;
+  if(existente){ ({error} = await sb.from('fp_gestao_cultura').update({usar_repertorio_ia: valor}).eq('id', existente.id)); }
+  else { ({error} = await sb.from('fp_gestao_cultura').insert({usar_repertorio_ia: valor})); }
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  STATE.usarRepertorioIA = valor;
+  toast(valor ? 'Repertório ativado nos Insights de IA.' : 'Repertório desativado nos Insights de IA.');
+}
+
+function renderRepertorio(){
+  document.getElementById('toggleRepertorioIA').checked = STATE.usarRepertorioIA;
+  document.getElementById('repData').value = todayISO();
+  const wrap = document.getElementById('repertorioLista');
+  if(STATE.repertorio.length===0){ wrap.innerHTML = emptyState('Nenhuma anotação registrada ainda.'); return; }
+  wrap.innerHTML = STATE.repertorio.map(r=>`
+    <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
+      <div style="display:flex;justify-content:space-between;">
+        <strong style="font-size:12.5px;color:var(--amber);">${r.fonte || 'Anotação livre'}</strong>
+        <span class="mono" style="color:var(--text-dim);font-size:12px;">${fmtDate(r.data_nota)}</span>
+      </div>
+      <div style="margin-top:8px;font-size:13px;color:var(--text);line-height:1.6;">${r.texto}</div>
+      <button class="btn btn-danger btn-sm" style="margin-top:10px;" onclick="excluirRepertorio('${r.id}')">🗑️ Excluir</button>
+    </div>`).join('');
+}
+
+async function salvarRepertorio(){
+  const texto = document.getElementById('repTexto').value.trim();
+  if(!texto){ toast('Escreva a anotação.', true); return; }
+  const payload = {
+    fonte: document.getElementById('repFonte').value.trim(),
+    data_nota: document.getElementById('repData').value || todayISO(),
+    texto
+  };
+  const { error } = await sb.from('fp_gestao_repertorio').insert(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  document.getElementById('repFonte').value = '';
+  document.getElementById('repTexto').value = '';
+  await carregarTudo();
+  renderRepertorio();
+  toast('Adicionado ao Repertório.');
+}
+
+async function excluirRepertorio(id){
+  if(!confirm('Excluir esta anotação?')) return;
+  const { error } = await sb.from('fp_gestao_repertorio').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarTudo();
+  renderRepertorio();
+  toast('Anotação excluída.');
 }
 
 function fillMembroSelects(){
@@ -1207,6 +1305,7 @@ Observações gerais atualizadas: ${m.observacoes || 'não informado'}`;
         percepcao_inicial: m.percepcao_inicial,
         cultura: STATE.cultura,
         insights_anteriores: historico,
+        repertorio: repertorioParaIA(),
         data_reuniao: todayISO()
       }
     });
@@ -1471,6 +1570,7 @@ async function gerarInsights(){
         percepcao_inicial: membro.percepcao_inicial,
         cultura: STATE.cultura,
         insights_anteriores: historicoAnterior,
+        repertorio: repertorioParaIA(),
         data_reuniao: data
       }
     });
@@ -2450,7 +2550,7 @@ async function gerarInsightsConversa(){
 
   try{
     const { data: fnData, error } = await sb.functions.invoke('gestao-minha-conversa-insights', {
-      body: { texto, com_quem: comQuem, data_conversa: data, pilares: STATE.pilares.map(p=>p.nome) }
+      body: { texto, com_quem: comQuem, data_conversa: data, pilares: STATE.pilares.map(p=>p.nome), repertorio: repertorioParaIA() }
     });
     if(error) throw error;
 
