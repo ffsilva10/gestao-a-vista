@@ -185,12 +185,12 @@
   .blurVal{filter:blur(6px);transition:filter .15s;user-select:none;}
   .blurVal.show{filter:blur(0);}
   .eyeBtn{background:none;border:none;color:var(--text-faint);cursor:pointer;padding:2px 4px;font-size:13px;line-height:1;}
-  input:checked + #toggleRepertorioTrack{background:var(--amber);}
+  input:checked + #toggleRepertorioTrack{background:var(--amber);border-color:var(--amber);}
   input:checked + #toggleRepertorioTrack + #toggleRepertorioKnob{transform:translateX(20px);}
   .eyeBtn:hover{color:var(--text);}
 
-  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#242a32;border:1px solid var(--line);
-    color:var(--text);padding:11px 18px;border-radius:8px;font-size:13px;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#242a32;border:1px solid rgba(255,255,255,.15);
+    color:#f2f3f5;padding:11px 18px;border-radius:8px;font-size:13px;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;
     box-shadow:0 8px 24px rgba(0,0,0,.4);}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
   .toast.err{border-color:var(--red);color:#ffb4b4;}
@@ -605,8 +605,8 @@
         </div>
         <label style="position:relative;display:inline-block;width:46px;height:26px;flex:none;">
           <input type="checkbox" id="toggleRepertorioIA" onchange="salvarToggleRepertorio()" style="opacity:0;width:0;height:0;">
-          <span id="toggleRepertorioTrack" style="position:absolute;cursor:pointer;inset:0;background:var(--line);border-radius:26px;transition:.2s;"></span>
-          <span id="toggleRepertorioKnob" style="position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;"></span>
+          <span id="toggleRepertorioTrack" style="position:absolute;cursor:pointer;inset:0;background:#9aa2ad;border:2px solid #7d8590;border-radius:26px;transition:.2s;"></span>
+          <span id="toggleRepertorioKnob" style="position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.4);"></span>
         </label>
       </div>
 
