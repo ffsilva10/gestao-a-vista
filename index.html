@@ -1132,20 +1132,20 @@ function renderProximasObrigacoes(){
 
   STATE.equipe.forEach(m=>{
     if(m.proximo_feedback){
-      itens.push({ data: m.proximo_feedback, tipo: '🗓 Feedback', desc: m.nome, cor: 'var(--amber)' });
+      itens.push({ data: m.proximo_feedback, tipo: '🗓 Feedback', desc: m.nome, cor: 'var(--amber)', acao: 'feedback', ref: m.id });
     }
   });
   STATE.reunioes.forEach(r=>{
     if(r.proxima_reuniao){
-      itens.push({ data: r.proxima_reuniao, tipo: '📝 Reunião', desc: nomeDaReuniao(r), cor: 'var(--blue)' });
+      itens.push({ data: r.proxima_reuniao, tipo: '📝 Reunião', desc: nomeDaReuniao(r), cor: 'var(--blue)', acao: 'reuniao', ref: r.id });
     }
   });
   STATE.projetos.forEach(p=>{
     if(p.status!=='concluido' && p.proxima_reuniao){
-      itens.push({ data: p.proxima_reuniao, tipo: '👀 Overview', desc: p.nome, cor: 'var(--blue)' });
+      itens.push({ data: p.proxima_reuniao, tipo: '👀 Overview', desc: p.nome, cor: 'var(--blue)', acao: 'projeto', ref: p.id });
     }
     if(p.status!=='concluido' && p.data_entrega){
-      itens.push({ data: p.data_entrega, tipo: '🏁 Conclusão', desc: p.nome, cor: 'var(--red)' });
+      itens.push({ data: p.data_entrega, tipo: '🏁 Conclusão', desc: p.nome, cor: 'var(--red)', acao: 'projeto', ref: p.id });
     }
   });
 
@@ -1154,11 +1154,23 @@ function renderProximasObrigacoes(){
   if(itens.length===0){ prox.innerHTML = `<p style="color:var(--text-faint);font-size:13px;">Nenhuma obrigação com data marcada.</p>`; return; }
 
   prox.innerHTML = `<div class="tableWrap"><table><tr><th>O quê</th><th>Quem/Projeto</th><th>Data</th></tr>` +
-    itens.map(i=>`<tr>
-      <td><span style="color:${i.cor}">${i.tipo}</span></td>
+    itens.map(i=>`<tr style="cursor:pointer;" onclick="abrirOrigemObrigacao('${i.acao}','${i.ref}')">
+      <td><span style="color:${i.cor};text-decoration:underline;">${i.tipo}</span></td>
       <td>${i.desc}</td>
       <td class="mono">${fmtDate(i.data)}</td>
     </tr>`).join('') + `</table></div>`;
+}
+
+function abrirOrigemObrigacao(acao, ref){
+  if(acao==='feedback'){
+    goView('equipe');
+    openMembroModal(ref);
+  } else if(acao==='reuniao'){
+    goView('reunioes');
+  } else if(acao==='projeto'){
+    goView('projetos');
+    openProjetoModal(ref);
+  }
 }
 
 function emptyState(msg){
