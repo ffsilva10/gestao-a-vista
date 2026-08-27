@@ -386,6 +386,7 @@
     <section class="view" id="view-acoes">
       <div class="pageHead">
         <div><h2>Ações</h2><p>O que foi combinado em reunião — cobrar até concluir</p></div>
+        <button class="btn btn-primary btn-sm" onclick="openAcaoModal()">+ Ação</button>
       </div>
       <div class="panel" style="padding:12px 16px;">
         <select id="filtroAcoesMembro" onchange="renderAcoes()" style="min-width:180px;margin-right:8px;"></select>
@@ -847,6 +848,16 @@
     <input type="hidden" id="edAcaoId">
     <div class="field"><label>Ação combinada</label><textarea id="edAcaoTexto" rows="4"></textarea></div>
     <button class="btn btn-primary" style="width:100%" onclick="salvarEdicaoAcao()">Salvar alterações</button>
+  </div>
+</div>
+
+<!-- ================= MODAL NOVA AÇÃO ================= -->
+<div class="modalBg" id="modalAcao">
+  <div class="modal">
+    <div class="modalHead"><h3>Nova ação</h3><button class="xClose" onclick="closeModal('modalAcao')">✕</button></div>
+    <div class="field"><label>Colaborador</label><select id="acMembro"></select></div>
+    <div class="field"><label>Ação combinada</label><textarea id="acDescricao" rows="3" placeholder="Ex: Levar o notebook novo pra assistência técnica"></textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="salvarAcaoManual()">Salvar ação</button>
   </div>
 </div>
 
@@ -1787,6 +1798,25 @@ async function mudarStatusAcao(id, status){
   if(error){ toast('Erro: ' + error.message, true); return; }
   await carregarTudo();
   renderAcoes(); renderInicio();
+}
+
+function openAcaoModal(){
+  document.getElementById('acMembro').innerHTML = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  document.getElementById('acDescricao').value = '';
+  openModal('modalAcao');
+}
+
+async function salvarAcaoManual(){
+  const membroId = document.getElementById('acMembro').value;
+  const descricao = document.getElementById('acDescricao').value.trim();
+  if(!membroId){ toast('Cadastre um colaborador primeiro.', true); return; }
+  if(!descricao){ toast('Descreva a ação.', true); return; }
+  const { error } = await sb.from('fp_gestao_acoes').insert({ membro_id: membroId, descricao, status: 'pendente' });
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalAcao');
+  await carregarTudo();
+  renderAcoes();
+  toast('Ação adicionada.');
 }
 
 function abrirEdicaoAcao(id){
