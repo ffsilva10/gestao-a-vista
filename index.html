@@ -285,6 +285,7 @@
     <div class="navItem" data-view="relatorios" onclick="goView('relatorios')">📄&nbsp; Relatórios</div>
     <div class="navItem" data-view="talento" onclick="goView('talento')">📐&nbsp; Talento</div>
     <div class="navItem" data-view="repertorio" onclick="goView('repertorio')">💡&nbsp; Repertório</div>
+    <div class="navItem" data-view="feedback" onclick="goView('feedback')">🗣️&nbsp; Feedback</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
@@ -626,6 +627,42 @@
       </div>
     </section>
 
+    <!-- ---------- FEEDBACK ---------- -->
+    <section class="view" id="view-feedback">
+      <div class="pageHead">
+        <div><h2>Feedback</h2><p>Roteiro pronto pra conduzir a conversa — junta tudo que o app já sabe da pessoa</p></div>
+      </div>
+
+      <div class="panel">
+        <div class="field"><label>Colaborador</label><select id="fbMembro"></select></div>
+        <button class="btn btn-primary" style="width:100%;" id="btnGerarFeedback" onclick="gerarRoteiroFeedback()">🗣️ Gerar roteiro de feedback com IA</button>
+      </div>
+
+      <div id="feedbackResultado" style="display:none;">
+        <div class="panel">
+          <h3>✅ Pontos fortes a reconhecer</h3>
+          <div id="fbPontosFortes"></div>
+        </div>
+        <div class="panel">
+          <h3>🎯 Pontos de desenvolvimento</h3>
+          <div id="fbPontosDesenvolvimento"></div>
+        </div>
+        <div class="panel">
+          <h3>💬 Sugestão de abertura</h3>
+          <div id="fbAbertura" class="insightBox"></div>
+        </div>
+        <div class="panel">
+          <h3>❓ Perguntas pra fazer</h3>
+          <div id="fbPerguntas"></div>
+        </div>
+        <div class="panel">
+          <h3>🤝 Combinados sugeridos pro fechamento</h3>
+          <div id="fbCombinados"></div>
+        </div>
+        <button class="btn btn-ghost" style="width:100%;" onclick="copiarRoteiroFeedback()">📋 Copiar roteiro completo</button>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -919,6 +956,7 @@ function goView(v){
   if(v==='relatorios') initRelatoriosDefaults();
   if(v==='talento') renderTalento();
   if(v==='repertorio') renderRepertorio();
+  if(v==='feedback') renderFeedbackView();
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -2731,6 +2769,102 @@ function toggleDitado(fieldId, btn){
   rec.onerror = () => { toast('Não foi possível captar o áudio.', true); };
   rec.onend = () => { btn.textContent = '🎤'; btn.style.color = ''; reconhecimentoAtivo = null; };
   rec.start();
+}
+
+/* ======================= FEEDBACK ======================= */
+let roteiroFeedbackGerado = null;
+
+function renderFeedbackView(){
+  document.getElementById('fbMembro').innerHTML = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  document.getElementById('feedbackResultado').style.display = 'none';
+  roteiroFeedbackGerado = null;
+}
+
+function coletarDadosFeedback(membroId){
+  const m = STATE.equipe.find(x=>x.id===membroId);
+  const pontuacoes = STATE.pontuacoes.filter(p=>p.membro_id===membroId).slice(0,8);
+  const positivas = pontuacoes.filter(p=>p.tipo==='positiva').map(p=>p.descricao).filter(Boolean);
+  const negativas = pontuacoes.filter(p=>p.tipo==='negativa').map(p=>p.descricao).filter(Boolean);
+  const acoesPendentes = STATE.acoes.filter(a=>a.membro_id===membroId && a.status!=='concluido').map(a=>a.descricao);
+  const acoesConcluidas = STATE.acoes.filter(a=>a.membro_id===membroId && a.status==='concluido').map(a=>a.descricao);
+  const projetosDele = STATE.projetos.filter(p=>(p.pessoas_envolvidas||[]).includes(membroId)).map(p=>`${p.nome} (${STATUS_PROJETO_LABEL[p.status]})`);
+  const eventosDele = STATE.eventos.filter(e=>e.membro_id===membroId).map(e=>`${EVENTO_LABEL[e.tipo]||e.tipo}: ${e.descricao}`);
+  const ultimaReuniao = STATE.reunioes.filter(r=>r.membro_id===membroId).sort((a,b)=>b.data_reuniao.localeCompare(a.data_reuniao))[0];
+
+  return {
+    nome_membro: m.nome,
+    cargo_membro: m.cargo,
+    objetivo_membro: m.objetivo,
+    percepcao_inicial: m.percepcao_inicial,
+    perfil_atual: m.perfil_atual,
+    alinhamento_cultural: m.alinhamento_cultural,
+    cultura: STATE.cultura,
+    pontuacoes_positivas: positivas,
+    pontuacoes_negativas: negativas,
+    acoes_pendentes: acoesPendentes,
+    acoes_concluidas: acoesConcluidas,
+    projetos: projetosDele,
+    eventos_desenvolvimento: eventosDele,
+    ultima_ata: ultimaReuniao ? ultimaReuniao.ata_gerada : null,
+    repertorio: repertorioParaIA()
+  };
+}
+
+async function gerarRoteiroFeedback(){
+  const membroId = document.getElementById('fbMembro').value;
+  if(!membroId){ toast('Cadastre e selecione um colaborador primeiro.', true); return; }
+
+  const btn = document.getElementById('btnGerarFeedback');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Montando roteiro...';
+
+  try{
+    const dados = coletarDadosFeedback(membroId);
+    const { data: fnData, error } = await sb.functions.invoke('gestao-gerar-feedback', { body: dados });
+    if(error) throw error;
+
+    roteiroFeedbackGerado = fnData;
+    document.getElementById('fbPontosFortes').innerHTML = (fnData.pontos_fortes||[]).map(p=>`<div class="repItem" style="border:none;">✅ ${p}</div>`).join('') || emptyState('Nada identificado.');
+    document.getElementById('fbPontosDesenvolvimento').innerHTML = (fnData.pontos_desenvolvimento||[]).map(p=>`<div class="repItem" style="border:none;">🎯 ${p}</div>`).join('') || emptyState('Nada identificado.');
+    document.getElementById('fbAbertura').textContent = fnData.abertura_sugerida || '';
+    document.getElementById('fbPerguntas').innerHTML = (fnData.perguntas||[]).map(p=>`<div class="repItem" style="border:none;">❓ ${p}</div>`).join('') || emptyState('Nenhuma sugerida.');
+    document.getElementById('fbCombinados').innerHTML = (fnData.combinados_sugeridos||[]).map(p=>`<div class="repItem" style="border:none;">🤝 ${p}</div>`).join('') || emptyState('Nenhum sugerido.');
+    document.getElementById('feedbackResultado').style.display = 'block';
+    toast('Roteiro gerado.');
+  } catch(e){
+    let msg = e.message || String(e);
+    if(e.context && typeof e.context.json === 'function'){
+      try{ const body = await e.context.json(); if(body && body.error) msg = body.error; } catch(_e){}
+    }
+    toast('Erro ao gerar roteiro: ' + msg, true);
+  } finally {
+    btn.disabled = false; btn.textContent = '🗣️ Gerar roteiro de feedback com IA';
+  }
+}
+
+function copiarRoteiroFeedback(){
+  if(!roteiroFeedbackGerado){ toast('Gere o roteiro primeiro.', true); return; }
+  const m = STATE.equipe.find(x=>x.id===document.getElementById('fbMembro').value);
+  const r = roteiroFeedbackGerado;
+  const texto = `🗣️ ROTEIRO DE FEEDBACK — ${m? m.nome : ''}
+
+PONTOS FORTES A RECONHECER
+${(r.pontos_fortes||[]).map(p=>`- ${p}`).join('\n') || '—'}
+
+PONTOS DE DESENVOLVIMENTO
+${(r.pontos_desenvolvimento||[]).map(p=>`- ${p}`).join('\n') || '—'}
+
+ABERTURA SUGERIDA
+${r.abertura_sugerida || '—'}
+
+PERGUNTAS PRA FAZER
+${(r.perguntas||[]).map(p=>`- ${p}`).join('\n') || '—'}
+
+COMBINADOS SUGERIDOS
+${(r.combinados_sugeridos||[]).map(p=>`- ${p}`).join('\n') || '—'}`;
+
+  navigator.clipboard.writeText(texto.trim())
+    .then(()=> toast('Roteiro copiado.'))
+    .catch(()=> toast('Não consegui copiar automaticamente. Selecione o texto manualmente.', true));
 }
 
 /* ======================= TEMA ======================= */
