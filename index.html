@@ -666,6 +666,12 @@
           <div id="fbCombinados"></div>
         </div>
         <button class="btn btn-ghost" style="width:100%;" onclick="copiarRoteiroFeedback()">📋 Copiar roteiro completo</button>
+        <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="salvarRoteiroFeedback()">💾 Salvar no histórico</button>
+      </div>
+
+      <div class="panel">
+        <h3>Histórico de roteiros de feedback</h3>
+        <div id="historicoFeedback" style="margin-top:10px;"></div>
       </div>
     </section>
 
@@ -926,7 +932,7 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], roteirosFeedback: [], user: null };
 let impactoSel = 'medio';
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
@@ -1029,7 +1035,7 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp] = await Promise.all([
+  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp, rf] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
@@ -1039,7 +1045,8 @@ async function carregarTudo(){
     sb.from('fp_gestao_meus_marcos').select('*').order('data_marco', {ascending:false}),
     sb.from('fp_gestao_projetos').select('*').order('created_at', {ascending:false}),
     sb.from('fp_gestao_eventos_desenv').select('*').order('data_evento', {ascending:false}),
-    sb.from('fp_gestao_repertorio').select('*').order('data_nota', {ascending:false})
+    sb.from('fp_gestao_repertorio').select('*').order('data_nota', {ascending:false}),
+    sb.from('fp_gestao_roteiros_feedback').select('*').order('created_at', {ascending:false})
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
@@ -1053,6 +1060,7 @@ async function carregarTudo(){
   STATE.projetos = pj.data || [];
   STATE.eventos = ev.data || [];
   STATE.repertorio = rp.data || [];
+  STATE.roteirosFeedback = rf.data || [];
   fillMembroSelects();
   await carregarMinhasConversas();
 }
@@ -2787,6 +2795,75 @@ function renderFeedbackView(){
   document.getElementById('fbMembro').innerHTML = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
   document.getElementById('feedbackResultado').style.display = 'none';
   roteiroFeedbackGerado = null;
+  renderHistoricoFeedback();
+}
+
+function renderHistoricoFeedback(){
+  const wrap = document.getElementById('historicoFeedback');
+  if(STATE.roteirosFeedback.length===0){ wrap.innerHTML = emptyState('Nenhum roteiro salvo ainda.'); return; }
+  wrap.innerHTML = STATE.roteirosFeedback.map(r=>{
+    const m = STATE.equipe.find(x=>x.id===r.membro_id);
+    return `
+    <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
+      <div style="display:flex;justify-content:space-between;">
+        <strong>${m? m.nome : '—'}</strong>
+        <span class="mono" style="color:var(--text-dim);font-size:12px;">${fmtDate(r.data_criacao)}</span>
+      </div>
+      ${r.abertura_sugerida ? `<div class="insightBox" style="margin-top:10px;">${r.abertura_sugerida}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="verRoteiroSalvo('${r.id}')">👁️ Ver completo</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirRoteiroFeedback('${r.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function verRoteiroSalvo(id){
+  const r = STATE.roteirosFeedback.find(x=>x.id===id);
+  if(!r) return;
+  document.getElementById('fbMembro').value = r.membro_id;
+  roteiroFeedbackGerado = {
+    pontos_fortes: r.pontos_fortes,
+    pontos_desenvolvimento: r.pontos_desenvolvimento,
+    abertura_sugerida: r.abertura_sugerida,
+    perguntas: r.perguntas,
+    combinados_sugeridos: r.combinados_sugeridos
+  };
+  document.getElementById('fbPontosFortes').innerHTML = (r.pontos_fortes||[]).map(p=>`<div class="repItem" style="border:none;">✅ ${p}</div>`).join('') || emptyState('Nada identificado.');
+  document.getElementById('fbPontosDesenvolvimento').innerHTML = (r.pontos_desenvolvimento||[]).map(p=>`<div class="repItem" style="border:none;">🎯 ${p}</div>`).join('') || emptyState('Nada identificado.');
+  document.getElementById('fbAbertura').textContent = r.abertura_sugerida || '';
+  document.getElementById('fbPerguntas').innerHTML = (r.perguntas||[]).map(p=>`<div class="repItem" style="border:none;">❓ ${p}</div>`).join('') || emptyState('Nenhuma sugerida.');
+  document.getElementById('fbCombinados').innerHTML = (r.combinados_sugeridos||[]).map(p=>`<div class="repItem" style="border:none;">🤝 ${p}</div>`).join('') || emptyState('Nenhum sugerido.');
+  document.getElementById('feedbackResultado').style.display = 'block';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+async function salvarRoteiroFeedback(){
+  if(!roteiroFeedbackGerado){ toast('Gere o roteiro primeiro.', true); return; }
+  const membroId = document.getElementById('fbMembro').value;
+  const payload = {
+    membro_id: membroId,
+    data_criacao: todayISO(),
+    pontos_fortes: roteiroFeedbackGerado.pontos_fortes || [],
+    pontos_desenvolvimento: roteiroFeedbackGerado.pontos_desenvolvimento || [],
+    abertura_sugerida: roteiroFeedbackGerado.abertura_sugerida || '',
+    perguntas: roteiroFeedbackGerado.perguntas || [],
+    combinados_sugeridos: roteiroFeedbackGerado.combinados_sugeridos || []
+  };
+  const { error } = await sb.from('fp_gestao_roteiros_feedback').insert(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  await carregarTudo();
+  renderHistoricoFeedback();
+  toast('Roteiro salvo no histórico.');
+}
+
+async function excluirRoteiroFeedback(id){
+  if(!confirm('Excluir este roteiro do histórico?')) return;
+  const { error } = await sb.from('fp_gestao_roteiros_feedback').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarTudo();
+  renderHistoricoFeedback();
+  toast('Roteiro excluído.');
 }
 
 function coletarDadosFeedback(membroId){
