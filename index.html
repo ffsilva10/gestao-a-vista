@@ -559,6 +559,12 @@
         <div class="field" id="repMembroField" style="display:none;">
           <label>Colaborador</label><select id="repMembro"></select>
         </div>
+        <div class="field" id="repIncluirEuField">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="repIncluirEu" checked style="width:16px;height:16px;">
+            Incluir meu bloco (Eu Fábio) no consolidado
+          </label>
+        </div>
         <button class="btn btn-primary" onclick="gerarRelatorio()">Gerar relatório</button>
         <button class="btn btn-ghost" id="btnImprimir" style="display:none;margin-top:8px;width:100%;" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
       </div>
@@ -2126,7 +2132,9 @@ async function salvarMarco(){
 
 /* ======================= RELATÓRIOS ======================= */
 function toggleRepMembroField(){
-  document.getElementById('repMembroField').style.display = document.getElementById('repTipo').value==='individual' ? 'block' : 'none';
+  const ehIndividual = document.getElementById('repTipo').value==='individual';
+  document.getElementById('repMembroField').style.display = ehIndividual ? 'block' : 'none';
+  document.getElementById('repIncluirEuField').style.display = ehIndividual ? 'none' : 'block';
 }
 function setPeriodoRapido(tipo){
   document.getElementById('prMes').classList.toggle('on', tipo==='mes');
@@ -2268,9 +2276,10 @@ function gerarRelatorio(){
       <table class="repRankTable">
         <tr><th>Colaborador</th><th>Cargo</th><th>Score do período</th></tr>
         ${ranking.map(r=>`<tr><td>${r.m.nome}</td><td>${r.m.cargo||''}</td><td>${r.score>0?'+':''}${r.score}</td></tr>`).join('')}
-      </table>
+    </table>
     </div>`;
-    preview.innerHTML = capa + blocoRelatorioFabio(ini, fim) + ranking.map(r=>blocoRelatorioMembro(r.m, ini, fim)).join('');
+    const incluirEu = document.getElementById('repIncluirEu').checked;
+    preview.innerHTML = capa + (incluirEu ? blocoRelatorioFabio(ini, fim) : '') + ranking.map(r=>blocoRelatorioMembro(r.m, ini, fim)).join('');
   }
 
   preview.style.display = 'block';
