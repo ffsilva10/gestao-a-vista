@@ -791,6 +791,16 @@
   </div>
 </div>
 
+<!-- ================= MODAL EDITAR AÇÃO ================= -->
+<div class="modalBg" id="modalEditarAcao">
+  <div class="modal">
+    <div class="modalHead"><h3>Editar ação</h3><button class="xClose" onclick="closeModal('modalEditarAcao')">✕</button></div>
+    <input type="hidden" id="edAcaoId">
+    <div class="field"><label>Ação combinada</label><textarea id="edAcaoTexto" rows="4"></textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="salvarEdicaoAcao()">Salvar alterações</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ================= MODAL PILAR ================= -->
@@ -1698,7 +1708,7 @@ function renderAcoes(){
   const wrap = document.getElementById('acoesLista');
   if(lista.length===0){ wrap.innerHTML = emptyState('Nenhuma ação encontrada.'); return; }
 
-  wrap.innerHTML = `<div class="tableWrap"><table><tr><th>Colaborador</th><th>Ação combinada</th><th>Status</th><th></th></tr>` +
+  wrap.innerHTML = `<div class="tableWrap"><table><tr><th>Colaborador</th><th>Ação combinada</th><th>Status</th><th></th><th></th></tr>` +
     lista.map(a=>{
       const m = STATE.equipe.find(x=>x.id===a.membro_id);
       return `<tr>
@@ -1712,6 +1722,10 @@ function renderAcoes(){
             <option value="concluido" ${a.status==='concluido'?'selected':''}>Concluído</option>
           </select>
         </td>
+        <td style="white-space:nowrap;">
+          <button class="eyeBtn" onclick="abrirEdicaoAcao('${a.id}')" title="Editar" style="font-size:16px;">✏️</button>
+          <button class="eyeBtn" onclick="excluirAcao('${a.id}')" title="Excluir" style="font-size:16px;">🗑️</button>
+        </td>
       </tr>`;
     }).join('') + `</table></div>`;
 }
@@ -1721,6 +1735,35 @@ async function mudarStatusAcao(id, status){
   if(error){ toast('Erro: ' + error.message, true); return; }
   await carregarTudo();
   renderAcoes(); renderInicio();
+}
+
+function abrirEdicaoAcao(id){
+  const a = STATE.acoes.find(x=>x.id===id);
+  if(!a) return;
+  document.getElementById('edAcaoId').value = id;
+  document.getElementById('edAcaoTexto').value = a.descricao || '';
+  openModal('modalEditarAcao');
+}
+
+async function salvarEdicaoAcao(){
+  const id = document.getElementById('edAcaoId').value;
+  const novoTexto = document.getElementById('edAcaoTexto').value.trim();
+  if(!novoTexto){ toast('Descreva a ação.', true); return; }
+  const { error } = await sb.from('fp_gestao_acoes').update({ descricao: novoTexto }).eq('id', id);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalEditarAcao');
+  await carregarTudo();
+  renderAcoes();
+  toast('Ação atualizada.');
+}
+
+async function excluirAcao(id){
+  if(!confirm('Excluir esta ação?')) return;
+  const { error } = await sb.from('fp_gestao_acoes').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarTudo();
+  renderAcoes();
+  toast('Ação excluída.');
 }
 
 /* ======================= PROJETOS ======================= */
