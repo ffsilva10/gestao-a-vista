@@ -1927,18 +1927,13 @@ function gerarPdfProjetosSelecionados(){
   const linhas = selecionados.map(p=>{
     const cor = { planejado:'#2D7DD2', em_andamento:'#E67E22', atrasado:'#C0392B', concluido:'#1D9E75' }[p.status] || '#5c6472';
     return `
-    <div style="background:#fff;border-radius:10px;border-left:6px solid ${cor};box-shadow:0 2px 10px rgba(0,0,0,.08);padding:16px 20px;margin-bottom:14px;break-inside:avoid;">
+    <div style="background:#fff;border-radius:10px;border-left:6px solid ${cor};box-shadow:0 2px 10px rgba(0,0,0,.08);padding:14px 20px;margin-bottom:12px;break-inside:avoid;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;">
         <h3 style="margin:0;font-family:'Barlow Condensed';font-size:19px;color:#0F1F35;text-transform:none;letter-spacing:0;">${p.nome}</h3>
         <span style="background:${cor}22;color:${cor};font-size:10.5px;font-weight:700;text-transform:uppercase;padding:3px 10px;border-radius:12px;">${STATUS_PROJETO_LABEL[p.status]}</span>
       </div>
-      <div style="font-size:11.5px;color:#8b93a1;margin-top:4px;">${p.setor||''}${p.setor?' · ':''}${nomesPessoas(p.pessoas_envolvidas)}</div>
-      ${p.andamento ? `<div style="font-size:13px;color:#2c3948;margin-top:8px;">${p.andamento}</div>` : ''}
-      <div style="display:flex;gap:18px;margin-top:10px;font-size:11.5px;color:#5c6472;">
-        <span>🗓 Overview: ${p.proxima_reuniao? fmtDate(p.proxima_reuniao) : '—'}</span>
-        <span>🏁 Conclusão: ${p.data_entrega? fmtDate(p.data_entrega) : '—'}</span>
-      </div>
-      ${p.proxima_etapa ? `<div style="font-size:12.5px;color:#2c3948;margin-top:6px;">➡️ ${p.proxima_etapa}</div>` : ''}
+      <div style="font-size:11.5px;color:#8b93a1;margin-top:4px;">👥 ${nomesPessoas(p.pessoas_envolvidas)}${p.proxima_reuniao? ` · 🗓 Próx. overview: ${fmtDate(p.proxima_reuniao)}` : ''}</div>
+      ${p.proxima_etapa ? `<div style="font-size:13px;color:#2D7DD2;margin-top:8px;">➡️ ${p.proxima_etapa}</div>` : ''}
     </div>`;
   }).join('');
 
