@@ -227,12 +227,13 @@
   .repRankTable td{padding:7px 8px;border-bottom:1px solid #eef0f2;}
   @media print{
     body *{visibility:hidden;}
-    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *, #pdfTalentoPreview, #pdfTalentoPreview *, #pdfEquipePreview, #pdfEquipePreview *, #pdfProjetosPreview, #pdfProjetosPreview *{visibility:visible;}
+    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *, #pdfTalentoPreview, #pdfTalentoPreview *, #pdfEquipePreview, #pdfEquipePreview *, #pdfProjetosPreview, #pdfProjetosPreview *, #pdfSaudePreview, #pdfSaudePreview *{visibility:visible;}
     #relatorioPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfAtasPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfTalentoPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfEquipePreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfProjetosPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
+    #pdfSaudePreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     .reportPage{box-shadow:none;border-radius:0;page-break-after:always;max-width:100%;}
     .reportPage:last-child{page-break-after:auto;}
   }
@@ -287,6 +288,7 @@
     <div class="navItem" data-view="talento" onclick="goView('talento')">📐&nbsp; Talento</div>
     <div class="navItem" data-view="repertorio" onclick="goView('repertorio')">💡&nbsp; Repertório</div>
     <div class="navItem" data-view="feedback" onclick="goView('feedback')">🗣️&nbsp; Feedback</div>
+    <div class="navItem" data-view="saude" onclick="goView('saude')">📊&nbsp; Saúde do Negócio</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
@@ -687,6 +689,44 @@
       </div>
     </section>
 
+    <!-- ---------- SAÚDE DO NEGÓCIO ---------- -->
+    <section class="view" id="view-saude">
+      <div class="pageHead">
+        <div><h2>Saúde do Negócio</h2><p>Fechamento mensal ADAMA — pronto pra enviar à Tatiana e ao Gustavo</p></div>
+      </div>
+
+      <div class="panel">
+        <h3>Novo fechamento de mês</h3>
+        <div class="row2">
+          <div class="field"><label>Mês de referência</label><input type="month" id="sndMes"></div>
+          <div class="field"><label>Região de maior impacto</label><input type="text" id="sndRegiao" placeholder="Ex: Paulínia"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Volume carregado — este mês</label><input type="text" inputmode="decimal" id="sndVolumeAtual" placeholder="Ex: 12500"></div>
+          <div class="field"><label>Volume carregado — mesmo mês ano anterior</label><input type="text" inputmode="decimal" id="sndVolumeAnterior" placeholder="Ex: 11000"></div>
+        </div>
+        <div id="sndEvolucaoPreview" style="margin:-6px 0 14px;font-size:13px;color:var(--text-dim);"></div>
+        <div class="row2">
+          <div class="field"><label>Ocorrências no mês</label><textarea id="sndOcorrencias" rows="2" placeholder="Ex: 3 ocorrências de avaria, 1 atraso crítico"></textarea></div>
+          <div class="field"><label>Devoluções no mês</label><textarea id="sndDevolucoes" rows="2" placeholder="Ex: 8 devoluções, principalmente por divergência de nota"></textarea></div>
+        </div>
+        <div class="field"><label>O que aconteceu no mês (relato livre)</label><textarea id="sndRelato" rows="8" placeholder="Escreva tudo que achar relevante sobre o mês — projetos, dificuldades, conquistas, contexto..."></textarea></div>
+        <button class="btn btn-primary" id="btnGerarSaude" style="width:100%;" onclick="gerarResumoSaude()">📊 Gerar resumo com IA</button>
+
+        <div id="saudeResultado" style="display:none;">
+          <div class="insightBox"><h4>Resumo executivo</h4><div id="outSaudeResumo"></div></div>
+          <div class="insightBox"><h4>Insights</h4><div id="outSaudeInsights"></div></div>
+          <button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="salvarSaude()">💾 Salvar fechamento</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Histórico de fechamentos</h3>
+        <div id="historicoSaude" style="margin-top:10px;"></div>
+        <div id="pdfSaudePreview"></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -872,6 +912,30 @@
   </div>
 </div>
 
+<!-- ================= MODAL EDITAR SAÚDE DO NEGÓCIO ================= -->
+<div class="modalBg" id="modalEditarSaude">
+  <div class="modal">
+    <div class="modalHead"><h3>Editar fechamento</h3><button class="xClose" onclick="closeModal('modalEditarSaude')">✕</button></div>
+    <input type="hidden" id="edSndId">
+    <div class="field"><label>Resumo executivo</label><textarea id="edSndResumo" rows="6"></textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="salvarEdicaoSaude()">Salvar alterações</button>
+  </div>
+</div>
+
+<!-- ================= MODAL INSIGHTS IA (REVISÃO) ================= -->
+<div class="modalBg" id="modalInsightsIA">
+  <div class="modal">
+    <div class="modalHead"><h3 id="modalInsightsIATitle">Insights IA</h3><button class="xClose" onclick="descartarInsightsIA()">✕</button></div>
+    <div class="insightBox"><h4>Perfil sugerido</h4><div id="outInsightsIAPerfil"></div></div>
+    <div class="insightBox"><h4>Alinhamento cultural</h4><div id="outInsightsIAAlinhamento"></div></div>
+    <div class="insightBox"><h4>Insights completos</h4><div id="outInsightsIATexto"></div></div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn btn-primary" style="flex:1" onclick="salvarInsightsIA()">💾 Salvar</button>
+      <button class="btn btn-ghost" onclick="descartarInsightsIA()">Descartar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ================= MODAL PILAR ================= -->
@@ -954,7 +1018,7 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], roteirosFeedback: [], user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], roteirosFeedback: [], resultadosAdama: [], user: null };
 let impactoSel = 'medio';
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
@@ -991,6 +1055,7 @@ function goView(v){
   if(v==='talento') renderTalento();
   if(v==='repertorio') renderRepertorio();
   if(v==='feedback') renderFeedbackView();
+  if(v==='saude') renderSaudeView();
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -1057,7 +1122,7 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp, rf] = await Promise.all([
+  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp, rf, sn] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
@@ -1068,7 +1133,8 @@ async function carregarTudo(){
     sb.from('fp_gestao_projetos').select('*').order('created_at', {ascending:false}),
     sb.from('fp_gestao_eventos_desenv').select('*').order('data_evento', {ascending:false}),
     sb.from('fp_gestao_repertorio').select('*').order('data_nota', {ascending:false}),
-    sb.from('fp_gestao_roteiros_feedback').select('*').order('created_at', {ascending:false})
+    sb.from('fp_gestao_roteiros_feedback').select('*').order('created_at', {ascending:false}),
+    sb.from('fp_gestao_resultados_adama').select('*').order('mes_referencia', {ascending:false})
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
@@ -1083,6 +1149,7 @@ async function carregarTudo(){
   STATE.eventos = ev.data || [];
   STATE.repertorio = rp.data || [];
   STATE.roteirosFeedback = rf.data || [];
+  STATE.resultadosAdama = sn.data || [];
   fillMembroSelects();
   await carregarMinhasConversas();
 }
@@ -1278,6 +1345,7 @@ function renderEquipe(){
       <div class="mcObj">${m.objetivo ? m.objetivo : '<span style="color:var(--text-faint)">Sem objetivo definido</span>'}</div>
       ${m.observacoes ? `<div class="mcObj">📌 ${m.observacoes}</div>` : ''}
       ${m.proximo_feedback ? `<div class="mcMeta" style="margin-top:8px;"><span>🗓 Próximo feedback: <span class="mono">${fmtDate(m.proximo_feedback)}</span></span></div>` : ''}
+      ${m.ultimo_insight_texto ? `<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:12px;color:var(--blue);">🤖 Último insight salvo (${m.ultimo_insight_data? fmtDate(m.ultimo_insight_data) : ''})</summary><div class="mcObj" style="margin-top:6px;">${m.ultimo_insight_texto}</div></details>` : ''}
       ${(() => { const n = STATE.eventos.filter(e=>e.membro_id===m.id).length; return n ? `<div class="mcMeta" style="margin-top:6px;"><span>🎓 ${n} evento(s) de desenvolvimento no ano</span></div>` : ''; })()}
       ${blocoSalario(m)}
       <div class="mcActions">
@@ -1378,6 +1446,9 @@ function gerarPdfEquipe(alvo){
   setTimeout(()=> window.print(), 200);
 }
 
+let insightsIAGerados = null;
+let insightsIAMembroId = null;
+
 async function atualizarInsightsIA(membroId, btn){
   const m = STATE.equipe.find(x=>x.id===membroId);
   if(!m) return;
@@ -1407,22 +1478,44 @@ Observações gerais atualizadas: ${m.observacoes || 'não informado'}`;
     });
     if(error) throw error;
 
-    await sb.from('fp_gestao_equipe').update({
-      perfil_atual: fnData.perfil_sugerido || m.perfil_atual || null,
-      alinhamento_cultural: fnData.alinhamento_cultural || m.alinhamento_cultural || null
-    }).eq('id', membroId);
-
-    await carregarTudo();
-    renderEquipe();
-    toast('Insights atualizados com base no cadastro atual.');
+    insightsIAGerados = fnData;
+    insightsIAMembroId = membroId;
+    document.getElementById('modalInsightsIATitle').textContent = 'Insights IA — ' + m.nome;
+    document.getElementById('outInsightsIAPerfil').textContent = fnData.perfil_sugerido || '—';
+    document.getElementById('outInsightsIAAlinhamento').textContent = fnData.alinhamento_cultural || '—';
+    document.getElementById('outInsightsIATexto').textContent = fnData.insights || '—';
+    openModal('modalInsightsIA');
   } catch(e){
     let msg = e.message || String(e);
     if(e.context && typeof e.context.json === 'function'){
       try{ const body = await e.context.json(); if(body && body.error) msg = body.error; } catch(_e){}
     }
     toast('Erro ao atualizar insights: ' + msg, true);
+  } finally {
     btn.disabled = false; btn.textContent = textoOriginal;
   }
+}
+
+async function salvarInsightsIA(){
+  if(!insightsIAGerados || !insightsIAMembroId){ toast('Nada pra salvar.', true); return; }
+  const m = STATE.equipe.find(x=>x.id===insightsIAMembroId);
+  const { error } = await sb.from('fp_gestao_equipe').update({
+    perfil_atual: insightsIAGerados.perfil_sugerido || (m? m.perfil_atual : null) || null,
+    alinhamento_cultural: insightsIAGerados.alinhamento_cultural || (m? m.alinhamento_cultural : null) || null,
+    ultimo_insight_texto: insightsIAGerados.insights || null,
+    ultimo_insight_data: todayISO()
+  }).eq('id', insightsIAMembroId);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalInsightsIA');
+  await carregarTudo();
+  renderEquipe();
+  toast('Insights salvos.');
+}
+
+function descartarInsightsIA(){
+  insightsIAGerados = null;
+  insightsIAMembroId = null;
+  closeModal('modalInsightsIA');
 }
 
 function blocoSalario(m){
@@ -3037,6 +3130,219 @@ ${(r.combinados_sugeridos||[]).map(p=>`- ${p}`).join('\n') || '—'}`;
   navigator.clipboard.writeText(texto.trim())
     .then(()=> toast('Roteiro copiado.'))
     .catch(()=> toast('Não consegui copiar automaticamente. Selecione o texto manualmente.', true));
+}
+
+/* ======================= SAÚDE DO NEGÓCIO ======================= */
+let resumoSaudeGerado = null;
+
+function renderSaudeView(){
+  const hoje = new Date();
+  document.getElementById('sndMes').value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  ['sndRegiao','sndVolumeAtual','sndVolumeAnterior','sndOcorrencias','sndDevolucoes','sndRelato'].forEach(f=>document.getElementById(f).value='');
+  document.getElementById('sndEvolucaoPreview').textContent = '';
+  document.getElementById('saudeResultado').style.display = 'none';
+  resumoSaudeGerado = null;
+  renderHistoricoSaude();
+}
+
+function atualizarEvolucaoPreview(){
+  const atual = parseMoeda(document.getElementById('sndVolumeAtual').value);
+  const anterior = parseMoeda(document.getElementById('sndVolumeAnterior').value);
+  const el = document.getElementById('sndEvolucaoPreview');
+  if(atual==null || anterior==null || anterior===0){ el.textContent = ''; return; }
+  const pct = ((atual-anterior)/anterior)*100;
+  const cor = pct>=0 ? 'var(--green)' : 'var(--red)';
+  el.innerHTML = `Evolução ano a ano: <b style="color:${cor}">${pct>0?'+':''}${pct.toFixed(1)}%</b>`;
+}
+document.addEventListener('input', (e)=>{
+  if(e.target && (e.target.id==='sndVolumeAtual' || e.target.id==='sndVolumeAnterior')) atualizarEvolucaoPreview();
+});
+
+function mesLabel(mesRef){
+  if(!mesRef) return '';
+  const [ano, mes] = mesRef.split('-');
+  const nomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return `${nomes[parseInt(mes)-1]}/${ano}`;
+}
+
+async function gerarResumoSaude(){
+  const mesRef = document.getElementById('sndMes').value;
+  const relato = document.getElementById('sndRelato').value.trim();
+  if(!mesRef){ toast('Selecione o mês de referência.', true); return; }
+  if(!relato){ toast('Escreva o relato do mês.', true); return; }
+
+  const volumeAtual = parseMoeda(document.getElementById('sndVolumeAtual').value);
+  const volumeAnterior = parseMoeda(document.getElementById('sndVolumeAnterior').value);
+  const pctEvolucao = (volumeAtual!=null && volumeAnterior) ? (((volumeAtual-volumeAnterior)/volumeAnterior)*100).toFixed(1) : null;
+
+  const btn = document.getElementById('btnGerarSaude');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Gerando com IA...';
+
+  try{
+    const { data: fnData, error } = await sb.functions.invoke('gestao-resultados-adama-insights', {
+      body: {
+        mes_referencia: mesLabel(mesRef),
+        volume_atual: volumeAtual,
+        volume_ano_anterior: volumeAnterior,
+        pct_evolucao: pctEvolucao,
+        regiao_maior_impacto: document.getElementById('sndRegiao').value.trim(),
+        ocorrencias: document.getElementById('sndOcorrencias').value.trim(),
+        devolucoes: document.getElementById('sndDevolucoes').value.trim(),
+        relato_mes: relato,
+        repertorio: repertorioParaIA()
+      }
+    });
+    if(error) throw error;
+
+    resumoSaudeGerado = fnData;
+    document.getElementById('outSaudeResumo').textContent = fnData.resumo || '';
+    document.getElementById('outSaudeInsights').innerHTML = (fnData.insights||[]).map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('') || emptyState('Nenhum insight gerado.');
+    document.getElementById('saudeResultado').style.display = 'block';
+    toast('Resumo gerado. Revise e salve abaixo.');
+  } catch(e){
+    let msg = e.message || String(e);
+    if(e.context && typeof e.context.json === 'function'){
+      try{ const body = await e.context.json(); if(body && body.error) msg = body.error; } catch(_e){}
+    }
+    toast('Erro ao gerar resumo: ' + msg, true);
+  } finally {
+    btn.disabled = false; btn.textContent = '📊 Gerar resumo com IA';
+  }
+}
+
+async function salvarSaude(){
+  if(!resumoSaudeGerado){ toast('Gere o resumo primeiro.', true); return; }
+  const payload = {
+    mes_referencia: document.getElementById('sndMes').value,
+    volume_atual: parseMoeda(document.getElementById('sndVolumeAtual').value),
+    volume_ano_anterior: parseMoeda(document.getElementById('sndVolumeAnterior').value),
+    regiao_maior_impacto: document.getElementById('sndRegiao').value.trim(),
+    ocorrencias: document.getElementById('sndOcorrencias').value.trim(),
+    devolucoes: document.getElementById('sndDevolucoes').value.trim(),
+    relato_mes: document.getElementById('sndRelato').value.trim(),
+    resumo_ia: resumoSaudeGerado.resumo || '',
+    insights_ia: JSON.stringify(resumoSaudeGerado.insights || [])
+  };
+  const { error } = await sb.from('fp_gestao_resultados_adama').insert(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  await carregarTudo();
+  renderSaudeView();
+  toast('Fechamento salvo.');
+}
+
+function renderHistoricoSaude(){
+  const wrap = document.getElementById('historicoSaude');
+  if(STATE.resultadosAdama.length===0){ wrap.innerHTML = emptyState('Nenhum fechamento salvo ainda.'); return; }
+  wrap.innerHTML = STATE.resultadosAdama.map(s=>{
+    let pctHtml = '';
+    if(s.volume_atual!=null && s.volume_ano_anterior){
+      const pct = ((s.volume_atual-s.volume_ano_anterior)/s.volume_ano_anterior)*100;
+      pctHtml = `<span class="mono" style="color:${pct>=0?'var(--green)':'var(--red)'};font-weight:700;">${pct>0?'+':''}${pct.toFixed(1)}%</span>`;
+    }
+    return `
+    <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>${mesLabel(s.mes_referencia)}</strong>
+        ${pctHtml}
+      </div>
+      ${s.resumo_ia ? `<div class="insightBox" style="margin-top:10px;">${s.resumo_ia}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="copiarSaude('${s.id}')">📋 Copiar</button>
+        <button class="btn btn-ghost btn-sm" onclick="gerarPdfSaude('${s.id}')">🖨️ PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirEdicaoSaude('${s.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirSaude('${s.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function copiarSaude(id){
+  const s = STATE.resultadosAdama.find(x=>x.id===id);
+  if(!s) return;
+  let insights = [];
+  try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
+  const texto = `📊 SAÚDE DO NEGÓCIO — ADAMA — ${mesLabel(s.mes_referencia)}
+
+${s.resumo_ia || ''}
+
+INSIGHTS
+${insights.map(i=>`- ${i}`).join('\n') || '—'}
+
+Região de maior impacto: ${s.regiao_maior_impacto || '—'}
+Ocorrências: ${s.ocorrencias || '—'}
+Devoluções: ${s.devolucoes || '—'}`;
+
+  navigator.clipboard.writeText(texto.trim())
+    .then(()=> toast('Resumo copiado.'))
+    .catch(()=> toast('Não consegui copiar automaticamente. Selecione o texto manualmente.', true));
+}
+
+function abrirEdicaoSaude(id){
+  const s = STATE.resultadosAdama.find(x=>x.id===id);
+  if(!s) return;
+  document.getElementById('edSndId').value = id;
+  document.getElementById('edSndResumo').value = s.resumo_ia || '';
+  openModal('modalEditarSaude');
+}
+
+async function salvarEdicaoSaude(){
+  const id = document.getElementById('edSndId').value;
+  const novoTexto = document.getElementById('edSndResumo').value.trim();
+  const { error } = await sb.from('fp_gestao_resultados_adama').update({ resumo_ia: novoTexto }).eq('id', id);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalEditarSaude');
+  await carregarTudo();
+  renderHistoricoSaude();
+  toast('Fechamento atualizado.');
+}
+
+async function excluirSaude(id){
+  if(!confirm('Excluir este fechamento?')) return;
+  const { error } = await sb.from('fp_gestao_resultados_adama').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarTudo();
+  renderHistoricoSaude();
+  toast('Fechamento excluído.');
+}
+
+function gerarPdfSaude(id){
+  const s = STATE.resultadosAdama.find(x=>x.id===id);
+  if(!s) return;
+  let insights = [];
+  try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
+  let pctHtml = '';
+  if(s.volume_atual!=null && s.volume_ano_anterior){
+    const pct = ((s.volume_atual-s.volume_ano_anterior)/s.volume_ano_anterior)*100;
+    const cor = pct>=0 ? '#1D9E75' : '#C0392B';
+    pctHtml = `<div class="repKpi"><div class="n" style="color:${cor}">${pct>0?'+':''}${pct.toFixed(1)}%</div><div class="l">Evolução ano a ano</div></div>`;
+  }
+  const preview = document.getElementById('pdfSaudePreview');
+  preview.innerHTML = `
+  <div class="reportPage" style="max-width:100%;">
+    <div class="repHead">
+      <div><h2>Saúde do Negócio — ADAMA</h2><div class="repSub">Coordenação 4PL · Fechamento de ${mesLabel(s.mes_referencia)}</div></div>
+      <div class="repPeriodo"><b>${fmtDate(todayISO())}</b>Gerado em</div>
+    </div>
+    <div class="repKpis">
+      ${pctHtml}
+      <div class="repKpi"><div class="n" style="font-size:14px;">${s.regiao_maior_impacto || '—'}</div><div class="l">Região de maior impacto</div></div>
+    </div>
+    <div class="repSection" style="margin-top:0;">
+      <h4>Resumo executivo</h4>
+      <div class="repItem" style="border:none;">${s.resumo_ia || '—'}</div>
+    </div>
+    <div class="repSection">
+      <h4>Insights</h4>
+      ${insights.map(i=>`<div class="repItem">${i}</div>`).join('') || '<div class="repEmpty">Nenhum insight registrado.</div>'}
+    </div>
+    <div class="repSection neg">
+      <h4>Ocorrências e devoluções</h4>
+      <div class="repItem" style="border:none;">Ocorrências: ${s.ocorrencias || '—'}</div>
+      <div class="repItem" style="border:none;">Devoluções: ${s.devolucoes || '—'}</div>
+    </div>
+  </div>`;
+  preview.style.display = 'block';
+  setTimeout(()=> window.print(), 200);
 }
 
 /* ======================= TEMA ======================= */
