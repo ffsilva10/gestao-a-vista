@@ -696,7 +696,10 @@
       </div>
 
       <div class="panel">
-        <h3>Novo fechamento de mês</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">Novo fechamento de mês</h3>
+          <button class="btn btn-ghost btn-sm" onclick="novoFechamentoSaude()">🔄 Limpar formulário</button>
+        </div>
         <div class="row2">
           <div class="field"><label>Mês de referência</label><input type="month" id="sndMes"></div>
           <div class="field"><label>Região de maior impacto</label><input type="text" id="sndRegiao" placeholder="Ex: Paulínia"></div>
@@ -3142,8 +3145,17 @@ ${(r.combinados_sugeridos||[]).map(p=>`- ${p}`).join('\n') || '—'}`;
 let resumoSaudeGerado = null;
 
 let linhasOperacaoSaude = [];
+let saudeViewInicializada = false;
 
 function renderSaudeView(){
+  if(!saudeViewInicializada){
+    novoFechamentoSaude();
+    saudeViewInicializada = true;
+  }
+  renderHistoricoSaude();
+}
+
+function novoFechamentoSaude(){
   const hoje = new Date();
   document.getElementById('sndMes').value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
   ['sndRegiao','sndVolumeAtual','sndVolumeAnterior','sndOcorrencias','sndDevolucoes','sndRelato'].forEach(f=>document.getElementById(f).value='');
@@ -3152,7 +3164,6 @@ function renderSaudeView(){
   resumoSaudeGerado = null;
   linhasOperacaoSaude = [{operacao:'Venda', volume:''}, {operacao:'Transferência', volume:''}, {operacao:'Retorno de AG', volume:''}];
   renderLinhasOperacaoSaude();
-  renderHistoricoSaude();
 }
 
 function renderLinhasOperacaoSaude(){
@@ -3262,7 +3273,8 @@ async function salvarSaude(){
   const { error } = await sb.from('fp_gestao_resultados_adama').insert(payload);
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   await carregarTudo();
-  renderSaudeView();
+  novoFechamentoSaude();
+  renderHistoricoSaude();
   toast('Fechamento salvo.');
 }
 
