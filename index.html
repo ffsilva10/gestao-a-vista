@@ -706,6 +706,12 @@
           <div class="field"><label>Volume carregado — mesmo mês ano anterior</label><input type="text" inputmode="decimal" id="sndVolumeAnterior" placeholder="Ex: 11000"></div>
         </div>
         <div id="sndEvolucaoPreview" style="margin:-6px 0 14px;font-size:13px;color:var(--text-dim);"></div>
+
+        <div class="field">
+          <label>Volume carregado por operação</label>
+          <div id="sndOperacoesLista"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="adicionarLinhaOperacao()">+ Adicionar operação</button>
+        </div>
         <div class="row2">
           <div class="field"><label>Ocorrências no mês</label><textarea id="sndOcorrencias" rows="2" placeholder="Ex: 3 ocorrências de avaria, 1 atraso crítico"></textarea></div>
           <div class="field"><label>Devoluções no mês</label><textarea id="sndDevolucoes" rows="2" placeholder="Ex: 8 devoluções, principalmente por divergência de nota"></textarea></div>
@@ -3135,6 +3141,8 @@ ${(r.combinados_sugeridos||[]).map(p=>`- ${p}`).join('\n') || '—'}`;
 /* ======================= SAÚDE DO NEGÓCIO ======================= */
 let resumoSaudeGerado = null;
 
+let linhasOperacaoSaude = [];
+
 function renderSaudeView(){
   const hoje = new Date();
   document.getElementById('sndMes').value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
@@ -3142,7 +3150,33 @@ function renderSaudeView(){
   document.getElementById('sndEvolucaoPreview').textContent = '';
   document.getElementById('saudeResultado').style.display = 'none';
   resumoSaudeGerado = null;
+  linhasOperacaoSaude = [{operacao:'Venda', volume:''}, {operacao:'Transferência', volume:''}, {operacao:'Retorno de AG', volume:''}];
+  renderLinhasOperacaoSaude();
   renderHistoricoSaude();
+}
+
+function renderLinhasOperacaoSaude(){
+  const wrap = document.getElementById('sndOperacoesLista');
+  wrap.innerHTML = linhasOperacaoSaude.map((l, idx) => `
+    <div class="row2" style="margin-bottom:8px;align-items:center;">
+      <input type="text" value="${l.operacao}" placeholder="Operação" oninput="linhasOperacaoSaude[${idx}].operacao=this.value" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
+      <div style="display:flex;gap:6px;">
+        <input type="text" inputmode="decimal" value="${l.volume}" placeholder="Volume" oninput="linhasOperacaoSaude[${idx}].volume=this.value" style="flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
+        <button class="eyeBtn" onclick="removerLinhaOperacao(${idx})" title="Remover">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+function adicionarLinhaOperacao(){
+  linhasOperacaoSaude.push({operacao:'', volume:''});
+  renderLinhasOperacaoSaude();
+}
+function removerLinhaOperacao(idx){
+  linhasOperacaoSaude.splice(idx, 1);
+  renderLinhasOperacaoSaude();
+}
+function operacoesPreenchidas(){
+  return linhasOperacaoSaude.filter(l => l.operacao.trim() && l.volume !== '').map(l => ({ operacao: l.operacao.trim(), volume: parseMoeda(l.volume) }));
 }
 
 function atualizarEvolucaoPreview(){
@@ -3188,6 +3222,7 @@ async function gerarResumoSaude(){
         regiao_maior_impacto: document.getElementById('sndRegiao').value.trim(),
         ocorrencias: document.getElementById('sndOcorrencias').value.trim(),
         devolucoes: document.getElementById('sndDevolucoes').value.trim(),
+        volumes_operacao: operacoesPreenchidas(),
         relato_mes: relato,
         repertorio: repertorioParaIA()
       }
@@ -3219,6 +3254,7 @@ async function salvarSaude(){
     regiao_maior_impacto: document.getElementById('sndRegiao').value.trim(),
     ocorrencias: document.getElementById('sndOcorrencias').value.trim(),
     devolucoes: document.getElementById('sndDevolucoes').value.trim(),
+    volumes_operacao: operacoesPreenchidas(),
     relato_mes: document.getElementById('sndRelato').value.trim(),
     resumo_ia: resumoSaudeGerado.resumo || '',
     insights_ia: JSON.stringify(resumoSaudeGerado.insights || [])
@@ -3261,12 +3297,16 @@ function copiarSaude(id){
   if(!s) return;
   let insights = [];
   try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
+  const operacoes = (s.volumes_operacao || []).map(o=>`- ${o.operacao}: ${o.volume}`).join('\n');
   const texto = `📊 SAÚDE DO NEGÓCIO — ADAMA — ${mesLabel(s.mes_referencia)}
 
 ${s.resumo_ia || ''}
 
 INSIGHTS
 ${insights.map(i=>`- ${i}`).join('\n') || '—'}
+
+VOLUME POR OPERAÇÃO
+${operacoes || '—'}
 
 Região de maior impacto: ${s.regiao_maior_impacto || '—'}
 Ocorrências: ${s.ocorrencias || '—'}
@@ -3330,6 +3370,10 @@ function gerarPdfSaude(id){
     <div class="repSection" style="margin-top:0;">
       <h4>Resumo executivo</h4>
       <div class="repItem" style="border:none;">${s.resumo_ia || '—'}</div>
+    </div>
+    <div class="repSection">
+      <h4>Volume por operação</h4>
+      ${(s.volumes_operacao||[]).length ? (s.volumes_operacao||[]).map(o=>`<div class="repItem">${o.operacao}: <b>${o.volume}</b></div>`).join('') : '<div class="repEmpty">Nenhum detalhamento registrado.</div>'}
     </div>
     <div class="repSection">
       <h4>Insights</h4>
