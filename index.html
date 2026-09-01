@@ -167,6 +167,24 @@
   .sliderRow input[type=range]{flex:1;}
   .sliderRow .sliderVal{width:24px;text-align:right;font-family:'JetBrains Mono';font-size:12px;color:var(--text);}
 
+  /* ---------- ORGANOGRAMA ---------- */
+  .orgWrap{padding:10px 0 4px;}
+  .orgTierLabel{text-align:center;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
+  .orgTier{display:flex;justify-content:center;margin-bottom:6px;}
+  .orgConnectorV{width:2px;height:26px;margin:0 auto;}
+  .orgCard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px 16px;
+    text-align:center;min-width:158px;box-shadow:0 4px 16px rgba(0,0,0,.14);transition:transform .18s ease, box-shadow .18s ease;}
+  .orgCard:hover{transform:translateY(-4px);box-shadow:0 10px 26px rgba(0,0,0,.22);}
+  .orgCard::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;border-radius:14px 14px 0 0;background:var(--org-cor);}
+  .orgAvatar{width:54px;height:54px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;
+    font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:700;margin:0 auto 12px;background:var(--org-cor);
+    box-shadow:0 0 0 5px var(--org-cor-soft);}
+  .orgCard .orgNome{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--heading);letter-spacing:.01em;}
+  .orgCard .orgCargo{font-size:11.5px;color:var(--text-dim);margin-top:3px;}
+  .orgChildrenRow{display:flex;justify-content:center;flex-wrap:wrap;gap:26px 30px;padding-top:0;}
+  .orgChildWrap{display:flex;flex-direction:column;align-items:center;}
+  .orgStem{width:2px;height:20px;}
+
   .insightBox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-top:10px;font-size:13px;line-height:1.6;white-space:pre-wrap;}
   .insightBox h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--amber);margin:0 0 6px;font-family:'Inter';font-weight:700;}
   .acaoChip{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:6px;font-size:12.5px;}
@@ -291,6 +309,7 @@
     <div class="navItem" data-view="feedback" onclick="goView('feedback')">🗣️&nbsp; Feedback</div>
     <div class="navItem" data-view="saude" onclick="goView('saude')">📊&nbsp; Saúde do Negócio</div>
     <div class="navItem" data-view="quarter" onclick="goView('quarter')">🗓️&nbsp; Quarter</div>
+    <div class="navItem" data-view="organograma" onclick="goView('organograma')">🏛️&nbsp; Organograma</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
@@ -789,6 +808,16 @@
       </div>
     </section>
 
+    <!-- ---------- ORGANOGRAMA ---------- -->
+    <section class="view" id="view-organograma">
+      <div class="pageHead">
+        <div><h2>Organograma</h2><p>Estrutura da equipe — nome e cargo</p></div>
+      </div>
+      <div class="panel">
+        <div id="organogramaWrap"></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -898,9 +927,19 @@
 <!-- ================= MODAL EDITAR ATA ================= -->
 <div class="modalBg" id="modalEditarAta">
   <div class="modal">
-    <div class="modalHead"><h3>Editar ata</h3><button class="xClose" onclick="closeModal('modalEditarAta')">✕</button></div>
+    <div class="modalHead"><h3 id="modalEditarAtaTitle">Editar ata</h3><button class="xClose" onclick="closeModal('modalEditarAta')">✕</button></div>
     <input type="hidden" id="edAtaId">
     <div class="field"><label>Texto da ata</label><textarea id="edAtaTexto" rows="10"></textarea></div>
+    <div class="row2">
+      <div class="field">
+        <label>Status</label>
+        <select id="edAtaStatus">
+          <option value="pendente">Pendente</option>
+          <option value="concluido">Concluído</option>
+        </select>
+      </div>
+      <div class="field"><label>Próxima reunião / follow-up</label><input type="date" id="edAtaProximaReuniao"></div>
+    </div>
     <button class="btn btn-primary" style="width:100%" onclick="salvarEdicaoAta()">Salvar alterações</button>
   </div>
 </div>
@@ -1134,6 +1173,7 @@ function goView(v){
   if(v==='feedback') renderFeedbackView();
   if(v==='saude') renderSaudeView();
   if(v==='quarter') renderQuarterView();
+  if(v==='organograma') renderOrganograma();
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -1367,7 +1407,7 @@ function renderProximasObrigacoes(){
     }
   });
   STATE.reunioes.forEach(r=>{
-    if(r.proxima_reuniao){
+    if(r.proxima_reuniao && r.status!=='concluido'){
       itens.push({ data: r.proxima_reuniao, tipo: '📝 Reunião', desc: nomeDaReuniao(r), cor: 'var(--blue)', acao: 'reuniao', ref: r.id });
     }
   });
@@ -1398,6 +1438,7 @@ function abrirOrigemObrigacao(acao, ref){
     openMembroModal(ref);
   } else if(acao==='reuniao'){
     goView('reunioes');
+    abrirEdicaoAta(ref);
   } else if(acao==='projeto'){
     goView('projetos');
     openProjetoModal(ref);
@@ -1695,6 +1736,7 @@ function renderReunioesView(){
         <strong>${nomeDaReuniao(r)}</strong>
         <span class="mono" style="color:var(--text-dim);font-size:12px;">${fmtDate(r.data_reuniao)}</span>
       </div>
+      <span class="badge ${r.status==='concluido'?'concluido':'pendente'}" style="margin-top:6px;">${r.status==='concluido'?'Concluído':'Pendente'}</span>
       ${r.ata_gerada? `<div class="insightBox" style="margin-top:10px;">${r.ata_gerada}</div>` : ''}
       ${r.proxima_reuniao? `<div style="margin-top:8px;font-size:12px;color:var(--text-dim);">🗓 Próxima reunião: <span class="mono">${fmtDate(r.proxima_reuniao)}</span></div>` : ''}
       <div style="display:flex;gap:8px;margin-top:10px;">
@@ -1730,17 +1772,23 @@ function abrirEdicaoAta(reuniaoId){
   if(!r){ toast('Reunião não encontrada.', true); return; }
   document.getElementById('edAtaId').value = reuniaoId;
   document.getElementById('edAtaTexto').value = r.ata_gerada || '';
+  document.getElementById('edAtaStatus').value = r.status || 'pendente';
+  document.getElementById('edAtaProximaReuniao').value = r.proxima_reuniao || '';
+  document.getElementById('modalEditarAtaTitle').textContent = 'Editar ata — ' + nomeDaReuniao(r);
   openModal('modalEditarAta');
 }
 
 async function salvarEdicaoAta(){
   const id = document.getElementById('edAtaId').value;
   const novoTexto = document.getElementById('edAtaTexto').value.trim();
-  const { error } = await sb.from('fp_gestao_reunioes').update({ ata_gerada: novoTexto }).eq('id', id);
+  const status = document.getElementById('edAtaStatus').value;
+  const proximaReuniao = document.getElementById('edAtaProximaReuniao').value || null;
+  const { error } = await sb.from('fp_gestao_reunioes').update({ ata_gerada: novoTexto, status, proxima_reuniao: proximaReuniao }).eq('id', id);
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   closeModal('modalEditarAta');
   await carregarTudo();
   renderReunioesView();
+  renderInicio();
   toast('Ata atualizada.');
 }
 
@@ -3943,6 +3991,55 @@ function gerarPdfQuarter(id){
   </div>`;
   preview.style.display = 'block';
   setTimeout(()=> window.print(), 200);
+}
+
+/* ======================= ORGANOGRAMA ======================= */
+const ORG_CORES = {
+  diretoria:   { cor:'#6C3483', soft:'rgba(108,52,131,.28)', label:'Diretoria' },
+  gerencia:    { cor:'#2D7DD2', soft:'rgba(45,125,210,.28)', label:'Gerência' },
+  coordenacao: { cor:'#F2A93B', soft:'rgba(242,169,59,.28)', label:'Coordenação 4PL' },
+  equipe:      { cor:'#3FB27F', soft:'rgba(63,178,127,.28)', label:'Equipe' }
+};
+
+function iniciaisNome(nome){
+  return nome.split(' ').filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+}
+
+function orgCardHtml(nome, cargo, nivel){
+  const t = ORG_CORES[nivel];
+  return `<div class="orgCard" style="--org-cor:${t.cor};--org-cor-soft:${t.soft};">
+    <div class="orgAvatar">${iniciaisNome(nome)}</div>
+    <div class="orgNome">${nome}</div>
+    <div class="orgCargo">${cargo}</div>
+  </div>`;
+}
+
+function orgConnector(nivelDe, nivelPara){
+  return `<div class="orgConnectorV" style="background:linear-gradient(to bottom, ${ORG_CORES[nivelDe].cor}, ${ORG_CORES[nivelPara].cor});"></div>`;
+}
+
+function renderOrganograma(){
+  const wrap = document.getElementById('organogramaWrap');
+  const filhos = STATE.equipe.map(m => `
+    <div class="orgChildWrap">
+      <div class="orgStem" style="background:${ORG_CORES.equipe.cor};"></div>
+      ${orgCardHtml(m.nome, m.cargo || 'Cargo não informado', 'equipe')}
+    </div>`).join('') || `<div class="orgChildWrap"><div class="orgStem" style="background:${ORG_CORES.equipe.cor};"></div><div class="orgCard" style="color:var(--text-faint);--org-cor:${ORG_CORES.equipe.cor};--org-cor-soft:${ORG_CORES.equipe.soft};">Cadastre colaboradores na aba Equipe</div></div>`;
+
+  wrap.innerHTML = `
+  <div class="orgWrap">
+    <div class="orgTierLabel" style="color:${ORG_CORES.diretoria.cor};">${ORG_CORES.diretoria.label}</div>
+    <div class="orgTier">${orgCardHtml('Tatiana Kimura', 'Diretora', 'diretoria')}</div>
+    ${orgConnector('diretoria','gerencia')}
+    <div class="orgTierLabel" style="color:${ORG_CORES.gerencia.cor};">${ORG_CORES.gerencia.label}</div>
+    <div class="orgTier">${orgCardHtml('Gustavo Bellintani', 'Gerente', 'gerencia')}</div>
+    ${orgConnector('gerencia','coordenacao')}
+    <div class="orgTierLabel" style="color:${ORG_CORES.coordenacao.cor};">${ORG_CORES.coordenacao.label}</div>
+    <div class="orgTier">${orgCardHtml('Eu (Fábio)', 'Coordenador 4PL', 'coordenacao')}</div>
+    ${orgConnector('coordenacao','equipe')}
+    <div class="orgTierLabel" style="color:${ORG_CORES.equipe.cor};">${ORG_CORES.equipe.label}</div>
+    <div class="orgChildrenRow">${filhos}</div>
+  </div>`;
 }
 
 /* ======================= TEMA ======================= */
