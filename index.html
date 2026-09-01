@@ -701,7 +701,7 @@
           <button class="btn btn-ghost btn-sm" onclick="novoFechamentoSaude()">🔄 Limpar formulário</button>
         </div>
         <div class="row2">
-          <div class="field"><label>Mês de referência</label><input type="month" id="sndMes"></div>
+          <div class="field"><label>Mês de referência</label><input type="month" id="sndMes" onchange="preencherVolumeAnteriorAuto()"></div>
           <div class="field"><label>Região de maior impacto</label><input type="text" id="sndRegiao" placeholder="Ex: Paulínia"></div>
         </div>
         <div class="row2">
@@ -3188,6 +3188,20 @@ function removerLinhaOperacao(idx){
 }
 function operacoesPreenchidas(){
   return linhasOperacaoSaude.filter(l => l.operacao.trim() && l.volume !== '').map(l => ({ operacao: l.operacao.trim(), volume: parseMoeda(l.volume) }));
+}
+
+function preencherVolumeAnteriorAuto(){
+  const mesRef = document.getElementById('sndMes').value;
+  if(!mesRef) return;
+  const [ano, mes] = mesRef.split('-');
+  const mesAnoAnterior = `${parseInt(ano)-1}-${mes}`;
+  const registroAnterior = STATE.resultadosAdama.find(s => s.mes_referencia === mesAnoAnterior);
+  const campoAnterior = document.getElementById('sndVolumeAnterior');
+  if(registroAnterior && registroAnterior.volume_atual != null && !campoAnterior.value){
+    campoAnterior.value = registroAnterior.volume_atual;
+    toast(`Volume de ${mesLabel(mesAnoAnterior)} preenchido automaticamente com base no histórico.`);
+    atualizarEvolucaoPreview();
+  }
 }
 
 function atualizarEvolucaoPreview(){
