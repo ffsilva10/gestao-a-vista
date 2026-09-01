@@ -227,13 +227,14 @@
   .repRankTable td{padding:7px 8px;border-bottom:1px solid #eef0f2;}
   @media print{
     body *{visibility:hidden;}
-    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *, #pdfTalentoPreview, #pdfTalentoPreview *, #pdfEquipePreview, #pdfEquipePreview *, #pdfProjetosPreview, #pdfProjetosPreview *, #pdfSaudePreview, #pdfSaudePreview *{visibility:visible;}
+    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *, #pdfTalentoPreview, #pdfTalentoPreview *, #pdfEquipePreview, #pdfEquipePreview *, #pdfProjetosPreview, #pdfProjetosPreview *, #pdfSaudePreview, #pdfSaudePreview *, #pdfQuarterPreview, #pdfQuarterPreview *{visibility:visible;}
     #relatorioPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfAtasPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfTalentoPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfEquipePreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfProjetosPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     #pdfSaudePreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
+    #pdfQuarterPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     .reportPage{box-shadow:none;border-radius:0;page-break-after:always;max-width:100%;}
     .reportPage:last-child{page-break-after:auto;}
   }
@@ -289,6 +290,7 @@
     <div class="navItem" data-view="repertorio" onclick="goView('repertorio')">💡&nbsp; Repertório</div>
     <div class="navItem" data-view="feedback" onclick="goView('feedback')">🗣️&nbsp; Feedback</div>
     <div class="navItem" data-view="saude" onclick="goView('saude')">📊&nbsp; Saúde do Negócio</div>
+    <div class="navItem" data-view="quarter" onclick="goView('quarter')">🗓️&nbsp; Quarter</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
@@ -744,6 +746,49 @@
       </div>
     </section>
 
+    <!-- ---------- QUARTER ---------- -->
+    <section class="view" id="view-quarter">
+      <div class="pageHead">
+        <div><h2>Quarter</h2><p>Panorama trimestral ADAMA — volumetria consolidada automaticamente a partir da Saúde do Negócio</p></div>
+      </div>
+
+      <div class="panel">
+        <div class="row2">
+          <div class="field"><label>Ano</label><input type="number" id="qtrAno" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:11px 12px;border-radius:8px;font-size:14px;"></div>
+          <div class="field">
+            <label>Trimestre</label>
+            <select id="qtrNumero" onchange="renderResumoQuarter()">
+              <option value="1">1º Tri (Jan-Fev-Mar)</option>
+              <option value="2">2º Tri (Abr-Mai-Jun)</option>
+              <option value="3">3º Tri (Jul-Ago-Set)</option>
+              <option value="4">4º Tri (Out-Nov-Dez)</option>
+            </select>
+          </div>
+        </div>
+        <div id="qtrResumoAuto"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Observações do trimestre — o que fizemos de diferente</h3>
+        <textarea id="qtrObservacoes" rows="7" placeholder="Ex: implantamos o Doc Express, centralizamos o faturamento de Paulínia, mudamos o processo de retorno de AG..."></textarea>
+        <button class="btn btn-primary" id="btnGerarQuarter" style="width:100%;margin-top:10px;" onclick="gerarAnaliseQuarter()">🗓️ Gerar análise estratégica com IA</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:8px;" onclick="salvarQuarterSemIA()">💾 Salvar só observações (sem IA)</button>
+
+        <div id="quarterResultado" style="display:none;">
+          <div class="insightBox"><h4>Resumo estratégico</h4><div id="outQuarterResumo"></div></div>
+          <div class="insightBox"><h4>Insights pra ADAMA</h4><div id="outQuarterInsightsCliente"></div></div>
+          <div class="insightBox"><h4>Insights internos (Bravo)</h4><div id="outQuarterInsightsInterno"></div></div>
+          <button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="salvarQuarter()">💾 Salvar trimestre</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Histórico de trimestres</h3>
+        <div id="historicoQuarter" style="margin-top:10px;"></div>
+        <div id="pdfQuarterPreview"></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -953,6 +998,16 @@
   </div>
 </div>
 
+<!-- ================= MODAL EDITAR QUARTER ================= -->
+<div class="modalBg" id="modalEditarQuarter">
+  <div class="modal">
+    <div class="modalHead"><h3>Editar trimestre</h3><button class="xClose" onclick="closeModal('modalEditarQuarter')">✕</button></div>
+    <input type="hidden" id="edQtrId">
+    <div class="field"><label>Resumo estratégico</label><textarea id="edQtrResumo" rows="6"></textarea></div>
+    <button class="btn btn-primary" style="width:100%" onclick="salvarEdicaoQuarter()">Salvar alterações</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ================= MODAL PILAR ================= -->
@@ -1036,7 +1091,7 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], roteirosFeedback: [], resultadosAdama: [], user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], roteirosFeedback: [], resultadosAdama: [], quarters: [], user: null };
 let impactoSel = 'medio';
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
@@ -1074,6 +1129,7 @@ function goView(v){
   if(v==='repertorio') renderRepertorio();
   if(v==='feedback') renderFeedbackView();
   if(v==='saude') renderSaudeView();
+  if(v==='quarter') renderQuarterView();
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -1140,7 +1196,7 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp, rf, sn] = await Promise.all([
+  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp, rf, sn, qt] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
@@ -1152,7 +1208,8 @@ async function carregarTudo(){
     sb.from('fp_gestao_eventos_desenv').select('*').order('data_evento', {ascending:false}),
     sb.from('fp_gestao_repertorio').select('*').order('data_nota', {ascending:false}),
     sb.from('fp_gestao_roteiros_feedback').select('*').order('created_at', {ascending:false}),
-    sb.from('fp_gestao_resultados_adama').select('*').order('mes_referencia', {ascending:false})
+    sb.from('fp_gestao_resultados_adama').select('*').order('mes_referencia', {ascending:false}),
+    sb.from('fp_gestao_quarters').select('*').order('trimestre', {ascending:false})
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
@@ -1168,6 +1225,7 @@ async function carregarTudo(){
   STATE.repertorio = rp.data || [];
   STATE.roteirosFeedback = rf.data || [];
   STATE.resultadosAdama = sn.data || [];
+  STATE.quarters = qt.data || [];
   fillMembroSelects();
   await carregarMinhasConversas();
 }
@@ -3556,6 +3614,301 @@ function gerarPdfSaude(id){
       <h4>Ocorrências e devoluções</h4>
       <div class="repItem" style="border:none;">Ocorrências: ${s.ocorrencias || '—'}</div>
       <div class="repItem" style="border:none;">Devoluções: ${s.devolucoes || '—'}</div>
+    </div>
+  </div>`;
+  preview.style.display = 'block';
+  setTimeout(()=> window.print(), 200);
+}
+
+/* ======================= QUARTER ======================= */
+const QUARTER_MESES = { 1:[1,2,3], 2:[4,5,6], 3:[7,8,9], 4:[10,11,12] };
+const QUARTER_NOME_MESES = { 1:'Jan-Fev-Mar', 2:'Abr-Mai-Jun', 3:'Jul-Ago-Set', 4:'Out-Nov-Dez' };
+let resumoQuarterGerado = null;
+
+function trimestreKey(ano, numero){ return `${ano}-Q${numero}`; }
+
+function mesesDoTrimestre(ano, numero){
+  return QUARTER_MESES[numero].map(m => `${ano}-${String(m).padStart(2,'0')}`);
+}
+
+function dadosTrimestre(ano, numero){
+  const meses = mesesDoTrimestre(ano, numero);
+  const registros = meses.map(m => STATE.resultadosAdama.find(s => s.mes_referencia === m)).filter(Boolean);
+  const volumeTotal = registros.reduce((soma, r) => soma + (r.volume_atual || 0), 0);
+  const mapaOperacoes = {};
+  registros.forEach(r => (r.volumes_operacao||[]).forEach(o => {
+    mapaOperacoes[o.operacao] = (mapaOperacoes[o.operacao] || 0) + (parseFloat(o.volume) || 0);
+  }));
+  const operacoesSomadas = Object.entries(mapaOperacoes).map(([operacao, volume]) => ({ operacao, volume }));
+  return { meses, mesesEncontrados: registros.length, volumeTotal, operacoesSomadas };
+}
+
+function renderQuarterView(){
+  const hoje = new Date();
+  document.getElementById('qtrAno').value = hoje.getFullYear();
+  document.getElementById('qtrNumero').value = Math.ceil((hoje.getMonth()+1)/3);
+  document.getElementById('qtrObservacoes').value = '';
+  document.getElementById('quarterResultado').style.display = 'none';
+  resumoQuarterGerado = null;
+  renderResumoQuarter();
+  renderHistoricoQuarter();
+}
+
+function renderResumoQuarter(){
+  const ano = parseInt(document.getElementById('qtrAno').value) || new Date().getFullYear();
+  const numero = parseInt(document.getElementById('qtrNumero').value);
+  const atual = dadosTrimestre(ano, numero);
+  const anterior = dadosTrimestre(ano-1, numero);
+
+  let pctHtml = '';
+  if(atual.volumeTotal > 0 && anterior.volumeTotal > 0){
+    const pct = ((atual.volumeTotal - anterior.volumeTotal) / anterior.volumeTotal) * 100;
+    pctHtml = `<div class="repKpi"><div class="n" style="color:${pct>=0?'var(--green)':'var(--red)'}">${pct>0?'+':''}${pct.toFixed(1)}%</div><div class="l">vs ${ano-1} mesmo tri</div></div>`;
+  }
+
+  const opsHtml = atual.operacoesSomadas.map(o=>{
+    const anteriorOp = anterior.operacoesSomadas.find(a=>a.operacao===o.operacao);
+    const pct = anteriorOp && anteriorOp.volume ? ((o.volume-anteriorOp.volume)/anteriorOp.volume)*100 : null;
+    return `<div class="repItem" style="border:none;">${o.operacao}: <b>${o.volume}</b>${anteriorOp ? ` vs <span style="color:var(--text-dim)">${anteriorOp.volume}</span>` : ''}${pct!=null ? ` <span class="mono" style="color:${pct>=0?'var(--green)':'var(--red)'};">(${pct>0?'+':''}${pct.toFixed(1)}%)</span>` : ''}</div>`;
+  }).join('') || '<div class="repEmpty">Nenhum volume cadastrado pra esse trimestre ainda.</div>';
+
+  document.getElementById('qtrResumoAuto').innerHTML = `
+    <div class="repKpis" style="margin-top:14px;">
+      <div class="repKpi"><div class="n">${atual.volumeTotal || 0}</div><div class="l">Volume total do trimestre</div></div>
+      <div class="repKpi"><div class="n">${atual.mesesEncontrados}/3</div><div class="l">Meses com dados</div></div>
+      ${pctHtml}
+    </div>
+    <div style="margin-top:6px;">${opsHtml}</div>
+    ${atual.mesesEncontrados < 3 ? `<div style="color:var(--amber);font-size:12px;margin-top:8px;">⚠️ Faltam meses desse trimestre em Saúde do Negócio (${QUARTER_NOME_MESES[numero]}/${ano}) — cadastre lá primeiro pra somar certo.</div>` : ''}`;
+}
+document.addEventListener('input', (e)=>{ if(e.target && e.target.id==='qtrAno') renderResumoQuarter(); });
+
+async function gerarAnaliseQuarter(){
+  const ano = parseInt(document.getElementById('qtrAno').value);
+  const numero = parseInt(document.getElementById('qtrNumero').value);
+  const observacoes = document.getElementById('qtrObservacoes').value.trim();
+  if(!observacoes){ toast('Escreva as observações do trimestre.', true); return; }
+
+  const atual = dadosTrimestre(ano, numero);
+  const anterior = dadosTrimestre(ano-1, numero);
+  const pctEvolucao = (atual.volumeTotal>0 && anterior.volumeTotal>0) ? (((atual.volumeTotal-anterior.volumeTotal)/anterior.volumeTotal)*100).toFixed(1) : null;
+
+  const btn = document.getElementById('btnGerarQuarter');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Gerando com IA...';
+
+  try{
+    const { data: fnData, error } = await sb.functions.invoke('gestao-quarter-insights', {
+      body: {
+        trimestre: `${numero}º trimestre de ${ano} (${QUARTER_NOME_MESES[numero]})`,
+        volume_total: atual.volumeTotal,
+        volume_total_ano_anterior: anterior.volumeTotal || null,
+        pct_evolucao: pctEvolucao,
+        volumes_operacao: atual.operacoesSomadas,
+        observacoes,
+        repertorio: repertorioParaIA()
+      }
+    });
+    if(error) throw error;
+
+    resumoQuarterGerado = fnData;
+    document.getElementById('outQuarterResumo').textContent = fnData.resumo_estrategico || '';
+    document.getElementById('outQuarterInsightsCliente').innerHTML = (fnData.insights_cliente||[]).map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('') || emptyState('Nenhum insight gerado.');
+    document.getElementById('outQuarterInsightsInterno').innerHTML = (fnData.insights_interno||[]).map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('') || emptyState('Nenhum insight gerado.');
+    document.getElementById('quarterResultado').style.display = 'block';
+    toast('Análise gerada. Revise e salve abaixo.');
+  } catch(e){
+    let msg = e.message || String(e);
+    if(e.context && typeof e.context.json === 'function'){
+      try{ const body = await e.context.json(); if(body && body.error) msg = body.error; } catch(_e){}
+    }
+    toast('Erro ao gerar análise: ' + msg, true);
+  } finally {
+    btn.disabled = false; btn.textContent = '🗓️ Gerar análise estratégica com IA';
+  }
+}
+
+function payloadQuarterBase(){
+  const ano = parseInt(document.getElementById('qtrAno').value);
+  const numero = parseInt(document.getElementById('qtrNumero').value);
+  const atual = dadosTrimestre(ano, numero);
+  const anterior = dadosTrimestre(ano-1, numero);
+  return {
+    trimestre: trimestreKey(ano, numero),
+    ano, numero,
+    volume_total: atual.volumeTotal,
+    volume_ano_anterior: anterior.volumeTotal || null,
+    volumes_operacao: atual.operacoesSomadas,
+    observacoes: document.getElementById('qtrObservacoes').value.trim()
+  };
+}
+
+async function upsertQuarter(payload){
+  const existente = STATE.quarters.find(q => q.trimestre === payload.trimestre);
+  if(existente){ return await sb.from('fp_gestao_quarters').update(payload).eq('id', existente.id); }
+  return await sb.from('fp_gestao_quarters').insert(payload);
+}
+
+async function salvarQuarter(){
+  if(!resumoQuarterGerado){ toast('Gere a análise primeiro.', true); return; }
+  const payload = {
+    ...payloadQuarterBase(),
+    resumo_ia: resumoQuarterGerado.resumo_estrategico || '',
+    insights_cliente: JSON.stringify(resumoQuarterGerado.insights_cliente || []),
+    insights_interno: JSON.stringify(resumoQuarterGerado.insights_interno || [])
+  };
+  const { error } = await upsertQuarter(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  await carregarTudo();
+  renderQuarterView();
+  toast('Trimestre salvo.');
+}
+
+async function salvarQuarterSemIA(){
+  const payload = payloadQuarterBase();
+  if(!payload.observacoes){ toast('Escreva ao menos as observações antes de salvar.', true); return; }
+  const { error } = await upsertQuarter(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  await carregarTudo();
+  renderQuarterView();
+  toast(`${payload.trimestre} salvo.`);
+}
+
+function renderHistoricoQuarter(){
+  const wrap = document.getElementById('historicoQuarter');
+  if(STATE.quarters.length===0){ wrap.innerHTML = emptyState('Nenhum trimestre salvo ainda.'); return; }
+  const ordenados = STATE.quarters.slice().sort((a,b)=>b.trimestre.localeCompare(a.trimestre));
+  wrap.innerHTML = ordenados.map(q=>{
+    let pctHtml = '';
+    if(q.volume_total>0 && q.volume_ano_anterior>0){
+      const pct = ((q.volume_total-q.volume_ano_anterior)/q.volume_ano_anterior)*100;
+      pctHtml = `<span class="mono" style="color:${pct>=0?'var(--green)':'var(--red)'};font-weight:700;">${pct>0?'+':''}${pct.toFixed(1)}%</span>`;
+    }
+    let insightsCliente = [], insightsInterno = [];
+    try{ insightsCliente = JSON.parse(q.insights_cliente || '[]'); } catch(_e){}
+    try{ insightsInterno = JSON.parse(q.insights_interno || '[]'); } catch(_e){}
+    return `
+    <details style="margin-bottom:10px;background:var(--panel2);border-radius:8px;padding:2px 14px;">
+      <summary style="cursor:pointer;padding:10px 0;display:flex;justify-content:space-between;align-items:center;">
+        <span><strong>${q.numero}º Tri ${q.ano}</strong> <span style="color:var(--text-faint);font-size:11px;">— ${QUARTER_NOME_MESES[q.numero]} · Vol: ${q.volume_total}</span></span>
+        ${pctHtml}
+      </summary>
+      <div style="padding-bottom:14px;">
+        ${q.observacoes ? `<div class="repItem" style="border:none;padding-top:6px;">📝 ${q.observacoes}</div>` : ''}
+        ${q.resumo_ia ? `<div class="insightBox" style="margin-top:8px;"><h4>Resumo estratégico</h4>${q.resumo_ia}</div>` : ''}
+        ${insightsCliente.length ? `<div class="insightBox" style="margin-top:8px;"><h4>Insights pra ADAMA</h4>${insightsCliente.map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('')}</div>` : ''}
+        ${insightsInterno.length ? `<div class="insightBox" style="margin-top:8px;"><h4>Insights internos (Bravo)</h4>${insightsInterno.map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('')}</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="copiarQuarter('${q.id}')">📋 Copiar</button>
+          <button class="btn btn-ghost btn-sm" onclick="gerarPdfQuarter('${q.id}')">🖨️ PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="abrirEdicaoQuarter('${q.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="excluirQuarter('${q.id}')">🗑️</button>
+        </div>
+      </div>
+    </details>`;
+  }).join('');
+}
+
+function copiarQuarter(id){
+  const q = STATE.quarters.find(x=>x.id===id);
+  if(!q) return;
+  let insightsCliente = [], insightsInterno = [];
+  try{ insightsCliente = JSON.parse(q.insights_cliente || '[]'); } catch(_e){}
+  try{ insightsInterno = JSON.parse(q.insights_interno || '[]'); } catch(_e){}
+  const operacoes = (q.volumes_operacao||[]).map(o=>`- ${o.operacao}: ${o.volume}`).join('\n');
+  const texto = `🗓️ QUARTER — ${q.numero}º TRI ${q.ano} (${QUARTER_NOME_MESES[q.numero]})
+
+Volume total: ${q.volume_total}${q.volume_ano_anterior ? ` (ano anterior: ${q.volume_ano_anterior})` : ''}
+
+VOLUME POR OPERAÇÃO
+${operacoes || '—'}
+
+OBSERVAÇÕES
+${q.observacoes || '—'}
+
+RESUMO ESTRATÉGICO
+${q.resumo_ia || '—'}
+
+INSIGHTS PRA ADAMA
+${insightsCliente.map(i=>`- ${i}`).join('\n') || '—'}
+
+INSIGHTS INTERNOS (BRAVO)
+${insightsInterno.map(i=>`- ${i}`).join('\n') || '—'}`;
+
+  navigator.clipboard.writeText(texto.trim())
+    .then(()=> toast('Trimestre copiado.'))
+    .catch(()=> toast('Não consegui copiar automaticamente. Selecione o texto manualmente.', true));
+}
+
+function abrirEdicaoQuarter(id){
+  const q = STATE.quarters.find(x=>x.id===id);
+  if(!q) return;
+  document.getElementById('edQtrId').value = id;
+  document.getElementById('edQtrResumo').value = q.resumo_ia || '';
+  openModal('modalEditarQuarter');
+}
+
+async function salvarEdicaoQuarter(){
+  const id = document.getElementById('edQtrId').value;
+  const novoTexto = document.getElementById('edQtrResumo').value.trim();
+  const { error } = await sb.from('fp_gestao_quarters').update({ resumo_ia: novoTexto }).eq('id', id);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  closeModal('modalEditarQuarter');
+  await carregarTudo();
+  renderHistoricoQuarter();
+  toast('Trimestre atualizado.');
+}
+
+async function excluirQuarter(id){
+  if(!confirm('Excluir este trimestre?')) return;
+  const { error } = await sb.from('fp_gestao_quarters').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarTudo();
+  renderHistoricoQuarter();
+  toast('Trimestre excluído.');
+}
+
+function gerarPdfQuarter(id){
+  const q = STATE.quarters.find(x=>x.id===id);
+  if(!q) return;
+  let insightsCliente = [], insightsInterno = [];
+  try{ insightsCliente = JSON.parse(q.insights_cliente || '[]'); } catch(_e){}
+  try{ insightsInterno = JSON.parse(q.insights_interno || '[]'); } catch(_e){}
+  let pctHtml = '';
+  if(q.volume_total>0 && q.volume_ano_anterior>0){
+    const pct = ((q.volume_total-q.volume_ano_anterior)/q.volume_ano_anterior)*100;
+    const cor = pct>=0 ? '#1D9E75' : '#C0392B';
+    pctHtml = `<div class="repKpi"><div class="n" style="color:${cor}">${pct>0?'+':''}${pct.toFixed(1)}%</div><div class="l">vs ${q.ano-1}</div></div>`;
+  }
+  const preview = document.getElementById('pdfQuarterPreview');
+  preview.innerHTML = `
+  <div class="reportPage" style="max-width:100%;">
+    <div class="repHead">
+      <div><h2>Gestão à Vista</h2><div class="repSub">Quarter — ${q.numero}º Trimestre ${q.ano} (${QUARTER_NOME_MESES[q.numero]}) · ADAMA</div></div>
+      <div class="repPeriodo"><b>${fmtDate(todayISO())}</b>Gerado em</div>
+    </div>
+    <div class="repKpis">
+      <div class="repKpi"><div class="n">${q.volume_total}</div><div class="l">Volume total</div></div>
+      ${pctHtml}
+    </div>
+    <div class="repSection" style="margin-top:0;">
+      <h4>Volume por operação</h4>
+      ${(q.volumes_operacao||[]).map(o=>`<div class="repItem">${o.operacao}: <b>${o.volume}</b></div>`).join('') || '<div class="repEmpty">Nenhum detalhamento.</div>'}
+    </div>
+    <div class="repSection">
+      <h4>Observações do trimestre</h4>
+      <div class="repItem" style="border:none;">${q.observacoes || '—'}</div>
+    </div>
+    <div class="repSection">
+      <h4>Resumo estratégico</h4>
+      <div class="repItem" style="border:none;">${q.resumo_ia || '—'}</div>
+    </div>
+    <div class="repSection">
+      <h4>Insights pra ADAMA</h4>
+      ${insightsCliente.map(i=>`<div class="repItem">${i}</div>`).join('') || '<div class="repEmpty">—</div>'}
+    </div>
+    <div class="repSection">
+      <h4>Insights internos (Bravo)</h4>
+      ${insightsInterno.map(i=>`<div class="repItem">${i}</div>`).join('') || '<div class="repEmpty">—</div>'}
     </div>
   </div>`;
   preview.style.display = 'block';
