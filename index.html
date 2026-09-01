@@ -1012,6 +1012,7 @@
       <div id="prjPessoasLista" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
     </div>
     <div class="field"><label>Andamento (como está agora)</label><textarea id="prjAndamento" rows="3" placeholder="Ex: 60% concluído, falta integrar com o Power BI"></textarea></div>
+    <div class="field"><label>Data de início</label><input type="date" id="prjDataInicio"></div>
     <div class="row2">
       <div class="field"><label>Próxima overview</label><input type="date" id="prjProximaReuniao"></div>
       <div class="field"><label>Prazo de conclusão final</label><input type="date" id="prjDataEntrega"></div>
@@ -2010,6 +2011,7 @@ function renderProjetos(){
           <span>🏁 Conclusão: ${p.data_entrega? fmtDate(p.data_entrega) : '—'}</span>
         </div>
         ${p.proxima_etapa ? `<div class="mcObj">➡️ ${p.proxima_etapa}</div>` : ''}
+        ${calcularDuracaoProjeto(p) ? `<div class="mcMeta" style="margin-top:6px;"><span>⏱️ ${calcularDuracaoProjeto(p)}</span></div>` : ''}
       </div>`;
     }).join('');
   }
@@ -2080,6 +2082,7 @@ function openProjetoModal(id){
     document.getElementById('prjSetor').value = p.setor || '';
     document.getElementById('prjStatus').value = p.status || 'em_andamento';
     document.getElementById('prjAndamento').value = p.andamento || '';
+    document.getElementById('prjDataInicio').value = p.data_inicio || '';
     document.getElementById('prjDataEntrega').value = p.data_entrega || '';
     document.getElementById('prjProximaReuniao').value = p.proxima_reuniao || '';
     document.getElementById('prjProximaEtapa').value = p.proxima_etapa || '';
@@ -2087,7 +2090,7 @@ function openProjetoModal(id){
     document.getElementById('btnDelProjeto').style.display = 'inline-block';
   } else {
     document.getElementById('modalProjetoTitle').textContent = 'Novo projeto';
-    ['prjNome','prjSetor','prjAndamento','prjDataEntrega','prjProximaReuniao','prjProximaEtapa'].forEach(f=>document.getElementById(f).value='');
+    ['prjNome','prjSetor','prjAndamento','prjDataInicio','prjDataEntrega','prjProximaReuniao','prjProximaEtapa'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('prjStatus').value = 'em_andamento';
     prjPessoasSel = [];
     document.getElementById('btnDelProjeto').style.display = 'none';
@@ -2104,6 +2107,7 @@ async function salvarProjeto(){
     status: document.getElementById('prjStatus').value,
     andamento: document.getElementById('prjAndamento').value.trim(),
     pessoas_envolvidas: prjPessoasSel,
+    data_inicio: document.getElementById('prjDataInicio').value || null,
     data_entrega: document.getElementById('prjDataEntrega').value || null,
     proxima_reuniao: document.getElementById('prjProximaReuniao').value || null,
     proxima_etapa: document.getElementById('prjProximaEtapa').value.trim(),
@@ -2499,6 +2503,17 @@ const CELL_LABELS = {
 let potencialSel = 'medio';
 
 function tierParaFaixa(tier){ return tier==='green' ? 'alto' : tier==='red' ? 'baixo' : 'medio'; }
+
+function calcularDuracaoProjeto(p){
+  if(!p.data_inicio) return null;
+  const fim = p.status==='concluido' && p.data_entrega ? p.data_entrega : todayISO();
+  const dias = Math.floor((new Date(fim) - new Date(p.data_inicio)) / (1000*60*60*24));
+  if(dias < 0) return null;
+  const rotulo = p.status==='concluido' ? 'Duração' : 'Em andamento há';
+  if(dias < 30) return `${rotulo}: ${dias} dia${dias!==1?'s':''}`;
+  const meses = Math.round(dias/30);
+  return `${rotulo}: ${meses} ${meses===1?'mês':'meses'}`;
+}
 
 function diasDesdeUltimoContato(membroId){
   const datas = [];
