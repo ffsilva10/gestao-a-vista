@@ -721,6 +721,7 @@
         </div>
         <div class="field"><label>O que aconteceu no mês (relato livre)</label><textarea id="sndRelato" rows="8" placeholder="Escreva tudo que achar relevante sobre o mês — projetos, dificuldades, conquistas, contexto..."></textarea></div>
         <button class="btn btn-primary" id="btnGerarSaude" style="width:100%;" onclick="gerarResumoSaude()">📊 Gerar resumo com IA</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:8px;" onclick="salvarSaudeSemIA()">💾 Salvar só os dados (sem IA) — bom pra preencher histórico rápido</button>
 
         <div id="saudeResultado" style="display:none;">
           <div class="insightBox"><h4>Resumo executivo</h4><div id="outSaudeResumo"></div></div>
@@ -3292,6 +3293,29 @@ async function salvarSaude(){
   toast('Fechamento salvo.');
 }
 
+async function salvarSaudeSemIA(){
+  const mesRef = document.getElementById('sndMes').value;
+  if(!mesRef){ toast('Selecione o mês de referência.', true); return; }
+  const payload = {
+    mes_referencia: mesRef,
+    volume_atual: parseMoeda(document.getElementById('sndVolumeAtual').value),
+    volume_ano_anterior: parseMoeda(document.getElementById('sndVolumeAnterior').value),
+    regiao_maior_impacto: document.getElementById('sndRegiao').value.trim(),
+    ocorrencias: document.getElementById('sndOcorrencias').value.trim(),
+    devolucoes: document.getElementById('sndDevolucoes').value.trim(),
+    volumes_operacao: operacoesPreenchidas(),
+    relato_mes: document.getElementById('sndRelato').value.trim(),
+    resumo_ia: null,
+    insights_ia: null
+  };
+  const { error } = await sb.from('fp_gestao_resultados_adama').insert(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  await carregarTudo();
+  novoFechamentoSaude();
+  renderHistoricoSaude();
+  toast(`${mesLabel(mesRef)} salvo — já pode ir pro próximo mês.`);
+}
+
 function renderHistoricoSaude(){
   const wrap = document.getElementById('historicoSaude');
   if(STATE.resultadosAdama.length===0){ wrap.innerHTML = emptyState('Nenhum fechamento salvo ainda.'); return; }
@@ -3307,6 +3331,7 @@ function renderHistoricoSaude(){
         <strong>${mesLabel(s.mes_referencia)}</strong>
         ${pctHtml}
       </div>
+      ${(s.volumes_operacao||[]).length ? `<div style="font-size:12px;color:var(--text-dim);margin-top:6px;">${(s.volumes_operacao||[]).map(o=>`${o.operacao}: <b style="color:var(--text)">${o.volume}</b>`).join(' · ')}</div>` : ''}
       ${s.resumo_ia ? `<div class="insightBox" style="margin-top:10px;">${s.resumo_ia}</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="copiarSaude('${s.id}')">📋 Copiar</button>
