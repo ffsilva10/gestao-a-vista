@@ -968,7 +968,11 @@
 <div class="modalBg" id="modalAcao">
   <div class="modal">
     <div class="modalHead"><h3>Nova ação</h3><button class="xClose" onclick="closeModal('modalAcao')">✕</button></div>
-    <div class="field"><label>Colaborador</label><select id="acMembro"></select></div>
+    <div class="field">
+      <label>Com quem</label>
+      <select id="acMembro" onchange="toggleAcOutroField()"></select>
+      <input type="text" id="acOutroNome" placeholder="Digite o nome" style="display:none;margin-top:8px;">
+    </div>
     <div class="field"><label>Ação combinada</label><textarea id="acDescricao" rows="3" placeholder="Ex: Levar o notebook novo pra assistência técnica"></textarea></div>
     <button class="btn btn-primary" style="width:100%" onclick="salvarAcaoManual()">Salvar ação</button>
   </div>
@@ -1953,9 +1957,9 @@ function renderAcoes(){
 
   wrap.innerHTML = `<div class="tableWrap"><table><tr><th>Colaborador</th><th>Ação combinada</th><th>Status</th><th></th><th></th></tr>` +
     lista.map(a=>{
-      const m = STATE.equipe.find(x=>x.id===a.membro_id);
+      const nome = a.membro_id ? (STATE.equipe.find(x=>x.id===a.membro_id)?.nome || '—') : (a.membro_nome_manual || '—');
       return `<tr>
-        <td>${m? m.nome : '—'}</td>
+        <td>${nome}</td>
         <td>${a.descricao}</td>
         <td><span class="badge ${a.status}">${STATUS_LABEL[a.status]}</span></td>
         <td>
@@ -1981,17 +1985,43 @@ async function mudarStatusAcao(id, status){
 }
 
 function openAcaoModal(){
-  document.getElementById('acMembro').innerHTML = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  const opts = STATE.equipe.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  document.getElementById('acMembro').innerHTML = opts +
+    `<optgroup label="Outras pessoas">
+      <option value="__EU__">Eu (Fábio)</option>
+      <option value="__GUSTAVO__">Gustavo Bellintani (gerente)</option>
+      <option value="__TATIANA__">Tatiana Kimura (diretora)</option>
+      <option value="__OUTRO__">Outro (digitar nome)</option>
+    </optgroup>`;
+  document.getElementById('acOutroNome').value = '';
+  document.getElementById('acOutroNome').style.display = 'none';
   document.getElementById('acDescricao').value = '';
   openModal('modalAcao');
 }
 
+function toggleAcOutroField(){
+  const v = document.getElementById('acMembro').value;
+  document.getElementById('acOutroNome').style.display = (v==='__OUTRO__') ? 'block' : 'none';
+}
+
 async function salvarAcaoManual(){
-  const membroId = document.getElementById('acMembro').value;
+  const selecao = document.getElementById('acMembro').value;
   const descricao = document.getElementById('acDescricao').value.trim();
-  if(!membroId){ toast('Cadastre um colaborador primeiro.', true); return; }
+  if(!selecao){ toast('Cadastre um colaborador primeiro.', true); return; }
   if(!descricao){ toast('Descreva a ação.', true); return; }
-  const { error } = await sb.from('fp_gestao_acoes').insert({ membro_id: membroId, descricao, status: 'pendente' });
+
+  const especiais = { '__EU__':'Eu (Fábio)', '__GUSTAVO__':'Gustavo Bellintani', '__TATIANA__':'Tatiana Kimura' };
+  let membroId = null, nomeManual = null;
+  if(especiais[selecao]){
+    nomeManual = especiais[selecao];
+  } else if(selecao === '__OUTRO__'){
+    nomeManual = document.getElementById('acOutroNome').value.trim();
+    if(!nomeManual){ toast('Digite o nome da pessoa.', true); return; }
+  } else {
+    membroId = selecao;
+  }
+
+  const { error } = await sb.from('fp_gestao_acoes').insert({ membro_id: membroId, membro_nome_manual: nomeManual, descricao, status: 'pendente' });
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   closeModal('modalAcao');
   await carregarTudo();
