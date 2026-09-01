@@ -731,7 +731,14 @@
       </div>
 
       <div class="panel">
+        <h3>Evolução mês a mês (% ano a ano)</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Cada barra compara o mês com o mesmo mês do ano anterior</p>
+        <div id="graficoEvolucaoSaude"></div>
+      </div>
+
+      <div class="panel">
         <h3>Histórico de fechamentos</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Agrupado por ano — clique pra abrir/fechar cada ano</p>
         <div id="historicoSaude" style="margin-top:10px;"></div>
         <div id="pdfSaudePreview"></div>
       </div>
@@ -3316,31 +3323,101 @@ async function salvarSaudeSemIA(){
   toast(`${mesLabel(mesRef)} salvo — já pode ir pro próximo mês.`);
 }
 
+function mesAnoAnteriorRef(mesRef){
+  const [ano, mes] = mesRef.split('-');
+  return `${parseInt(ano)-1}-${mes}`;
+}
+
+function pctOperacoes(s){
+  const anterior = STATE.resultadosAdama.find(x=>x.mes_referencia === mesAnoAnteriorRef(s.mes_referencia));
+  if(!anterior) return null;
+  const mapaAnterior = {};
+  (anterior.volumes_operacao||[]).forEach(o=>{ mapaAnterior[o.operacao] = o.volume; });
+  return (s.volumes_operacao||[]).map(o=>{
+    const vAnterior = mapaAnterior[o.operacao];
+    if(vAnterior==null || vAnterior===0) return { operacao: o.operacao, volume: o.volume, pct: null };
+    const pct = ((o.volume - vAnterior) / vAnterior) * 100;
+    return { operacao: o.operacao, volume: o.volume, pct };
+  });
+}
+
+function cardFechamentoSaudeHtml(s){
+  let pctHtml = '';
+  if(s.volume_atual!=null && s.volume_ano_anterior){
+    const pct = ((s.volume_atual-s.volume_ano_anterior)/s.volume_ano_anterior)*100;
+    pctHtml = `<span class="mono" style="color:${pct>=0?'var(--green)':'var(--red)'};font-weight:700;">${pct>0?'+':''}${pct.toFixed(1)}%</span>`;
+  }
+  const opsComPct = pctOperacoes(s);
+  const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, pct:null}));
+  const opsHtml = listaOps.map(o=>
+    `${o.operacao}: <b style="color:var(--text)">${o.volume}</b>${o.pct!=null ? ` <span class="mono" style="color:${o.pct>=0?'var(--green)':'var(--red)'};font-size:11px;">(${o.pct>0?'+':''}${o.pct.toFixed(1)}%)</span>` : ''}`
+  ).join(' · ');
+  let insights = [];
+  try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
+
+  return `
+  <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <strong>${mesLabel(s.mes_referencia)}</strong>
+      ${pctHtml}
+    </div>
+    ${opsHtml ? `<div style="font-size:12px;color:var(--text-dim);margin-top:6px;">${opsHtml}</div>` : ''}
+    ${s.resumo_ia ? `<div class="insightBox" style="margin-top:10px;"><h4>Resumo executivo</h4>${s.resumo_ia}</div>` : ''}
+    ${insights.length ? `<div class="insightBox" style="margin-top:8px;"><h4>Insights</h4>${insights.map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('')}</div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="copiarSaude('${s.id}')">📋 Copiar</button>
+      <button class="btn btn-ghost btn-sm" onclick="gerarPdfSaude('${s.id}')">🖨️ PDF</button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirEdicaoSaude('${s.id}')">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="excluirSaude('${s.id}')">🗑️</button>
+    </div>
+  </div>`;
+}
+
 function renderHistoricoSaude(){
   const wrap = document.getElementById('historicoSaude');
-  if(STATE.resultadosAdama.length===0){ wrap.innerHTML = emptyState('Nenhum fechamento salvo ainda.'); return; }
-  wrap.innerHTML = STATE.resultadosAdama.map(s=>{
-    let pctHtml = '';
-    if(s.volume_atual!=null && s.volume_ano_anterior){
-      const pct = ((s.volume_atual-s.volume_ano_anterior)/s.volume_ano_anterior)*100;
-      pctHtml = `<span class="mono" style="color:${pct>=0?'var(--green)':'var(--red)'};font-weight:700;">${pct>0?'+':''}${pct.toFixed(1)}%</span>`;
-    }
-    return `
-    <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <strong>${mesLabel(s.mes_referencia)}</strong>
-        ${pctHtml}
-      </div>
-      ${(s.volumes_operacao||[]).length ? `<div style="font-size:12px;color:var(--text-dim);margin-top:6px;">${(s.volumes_operacao||[]).map(o=>`${o.operacao}: <b style="color:var(--text)">${o.volume}</b>`).join(' · ')}</div>` : ''}
-      ${s.resumo_ia ? `<div class="insightBox" style="margin-top:10px;">${s.resumo_ia}</div>` : ''}
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="copiarSaude('${s.id}')">📋 Copiar</button>
-        <button class="btn btn-ghost btn-sm" onclick="gerarPdfSaude('${s.id}')">🖨️ PDF</button>
-        <button class="btn btn-ghost btn-sm" onclick="abrirEdicaoSaude('${s.id}')">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="excluirSaude('${s.id}')">🗑️</button>
-      </div>
-    </div>`;
-  }).join('');
+  if(STATE.resultadosAdama.length===0){ wrap.innerHTML = emptyState('Nenhum fechamento salvo ainda.'); renderGraficoEvolucaoSaude(); return; }
+
+  const porAno = {};
+  STATE.resultadosAdama.forEach(s=>{
+    const ano = s.mes_referencia.split('-')[0];
+    if(!porAno[ano]) porAno[ano] = [];
+    porAno[ano].push(s);
+  });
+  const anos = Object.keys(porAno).sort((a,b)=>b.localeCompare(a));
+
+  wrap.innerHTML = anos.map((ano, idx) => `
+    <details ${idx===0 ? 'open' : ''} style="margin-bottom:12px;">
+      <summary style="cursor:pointer;font-family:'Barlow Condensed';font-size:17px;color:var(--heading);padding:8px 4px;letter-spacing:.02em;">${ano} <span style="font-family:'Inter';font-size:12px;color:var(--text-faint);font-weight:400;">(${porAno[ano].length} mês${porAno[ano].length>1?'es':''})</span></summary>
+      <div style="padding-top:8px;">${porAno[ano].map(s=>cardFechamentoSaudeHtml(s)).join('')}</div>
+    </details>`).join('');
+
+  renderGraficoEvolucaoSaude();
+}
+
+function renderGraficoEvolucaoSaude(){
+  const el = document.getElementById('graficoEvolucaoSaude');
+  const comEvolucao = STATE.resultadosAdama
+    .filter(s => s.volume_atual!=null && s.volume_ano_anterior)
+    .slice()
+    .sort((a,b)=>a.mes_referencia.localeCompare(b.mes_referencia));
+  if(comEvolucao.length===0){ el.innerHTML = emptyState('Cadastre o mesmo mês em dois anos seguidos pra ver a evolução aqui.'); return; }
+
+  const pcts = comEvolucao.map(s => ((s.volume_atual - s.volume_ano_anterior) / s.volume_ano_anterior) * 100);
+  const maxAbs = Math.max(5, ...pcts.map(p=>Math.abs(p)));
+
+  el.innerHTML = `<div class="barChart" style="overflow-x:auto;padding-bottom:6px;">` +
+    comEvolucao.map((s, i) => {
+      const pct = pcts[i];
+      const cor = pct>=0 ? 'var(--green)' : 'var(--red)';
+      const altura = Math.max(4, Math.round((Math.abs(pct)/maxAbs)*100));
+      const [ano, mes] = s.mes_referencia.split('-');
+      const nomesCurtos = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return `<div class="barCol" style="min-width:52px;">
+        <div class="barVal" style="color:${cor};font-size:11px;">${pct>0?'+':''}${pct.toFixed(0)}%</div>
+        <div class="barTrack"><div class="barFill" style="height:${altura}%;background:${cor};"></div></div>
+        <div class="barLbl" style="font-size:9.5px;">${nomesCurtos[parseInt(mes)-1]}/${ano.slice(2)}</div>
+      </div>`;
+    }).join('') + `</div>`;
 }
 
 function copiarSaude(id){
@@ -3348,7 +3425,9 @@ function copiarSaude(id){
   if(!s) return;
   let insights = [];
   try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
-  const operacoes = (s.volumes_operacao || []).map(o=>`- ${o.operacao}: ${o.volume}`).join('\n');
+  const opsComPct = pctOperacoes(s);
+  const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, pct:null}));
+  const operacoes = listaOps.map(o=>`- ${o.operacao}: ${o.volume}${o.pct!=null ? ` (${o.pct>0?'+':''}${o.pct.toFixed(1)}% vs ano anterior)` : ''}`).join('\n');
   const texto = `📊 SAÚDE DO NEGÓCIO — ADAMA — ${mesLabel(s.mes_referencia)}
 
 ${s.resumo_ia || ''}
@@ -3424,7 +3503,11 @@ function gerarPdfSaude(id){
     </div>
     <div class="repSection">
       <h4>Volume por operação</h4>
-      ${(s.volumes_operacao||[]).length ? (s.volumes_operacao||[]).map(o=>`<div class="repItem">${o.operacao}: <b>${o.volume}</b></div>`).join('') : '<div class="repEmpty">Nenhum detalhamento registrado.</div>'}
+      ${(() => {
+        const opsComPct = pctOperacoes(s);
+        const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, pct:null}));
+        return listaOps.length ? listaOps.map(o=>`<div class="repItem">${o.operacao}: <b>${o.volume}</b>${o.pct!=null ? ` <span style="color:${o.pct>=0?'#1D9E75':'#C0392B'};font-weight:700;">(${o.pct>0?'+':''}${o.pct.toFixed(1)}%)</span>` : ''}</div>`).join('') : '<div class="repEmpty">Nenhum detalhamento registrado.</div>';
+      })()}
     </div>
     <div class="repSection">
       <h4>Insights</h4>
