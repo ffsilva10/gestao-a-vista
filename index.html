@@ -3335,9 +3335,9 @@ function pctOperacoes(s){
   (anterior.volumes_operacao||[]).forEach(o=>{ mapaAnterior[o.operacao] = o.volume; });
   return (s.volumes_operacao||[]).map(o=>{
     const vAnterior = mapaAnterior[o.operacao];
-    if(vAnterior==null || vAnterior===0) return { operacao: o.operacao, volume: o.volume, pct: null };
+    if(vAnterior==null || vAnterior===0) return { operacao: o.operacao, volume: o.volume, volumeAnterior: vAnterior, pct: null };
     const pct = ((o.volume - vAnterior) / vAnterior) * 100;
-    return { operacao: o.operacao, volume: o.volume, pct };
+    return { operacao: o.operacao, volume: o.volume, volumeAnterior: vAnterior, pct };
   });
 }
 
@@ -3348,29 +3348,42 @@ function cardFechamentoSaudeHtml(s){
     pctHtml = `<span class="mono" style="color:${pct>=0?'var(--green)':'var(--red)'};font-weight:700;">${pct>0?'+':''}${pct.toFixed(1)}%</span>`;
   }
   const opsComPct = pctOperacoes(s);
-  const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, pct:null}));
-  const opsHtml = listaOps.map(o=>
-    `${o.operacao}: <b style="color:var(--text)">${o.volume}</b>${o.pct!=null ? ` <span class="mono" style="color:${o.pct>=0?'var(--green)':'var(--red)'};font-size:11px;">(${o.pct>0?'+':''}${o.pct.toFixed(1)}%)</span>` : ''}`
-  ).join(' · ');
+  const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, volumeAnterior:null, pct:null}));
+  const [anoAtualNum] = s.mes_referencia.split('-');
+  const anoAnteriorNum = parseInt(anoAtualNum)-1;
+
+  const resumoChip = listaOps.map(o=>o.operacao).join(', ');
   let insights = [];
   try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
 
+  const tabelaComparativa = listaOps.length ? `<div class="tableWrap"><table style="margin-top:10px;">
+    <tr><th>Operação</th><th>${anoAtualNum}</th><th>${anoAnteriorNum}</th><th>%</th></tr>
+    ${listaOps.map(o=>`<tr>
+      <td>${o.operacao}</td>
+      <td class="mono">${o.volume}</td>
+      <td class="mono" style="color:var(--text-dim);">${o.volumeAnterior!=null ? o.volumeAnterior : '—'}</td>
+      <td class="mono" style="color:${o.pct!=null ? (o.pct>=0?'var(--green)':'var(--red)') : 'var(--text-faint)'};font-weight:700;">${o.pct!=null ? `${o.pct>0?'+':''}${o.pct.toFixed(1)}%` : '—'}</td>
+    </tr>`).join('')}
+  </table></div>` : '';
+
   return `
-  <div class="panel" style="margin-top:0;margin-bottom:10px;background:var(--panel2);">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <strong>${mesLabel(s.mes_referencia)}</strong>
+  <details id="saudeMes-${s.mes_referencia}" style="margin-bottom:10px;background:var(--panel2);border-radius:8px;padding:2px 14px;">
+    <summary style="cursor:pointer;padding:10px 0;display:flex;justify-content:space-between;align-items:center;">
+      <span><strong>${mesLabel(s.mes_referencia)}</strong> <span style="color:var(--text-faint);font-size:11px;font-weight:400;">— ${resumoChip}</span></span>
       ${pctHtml}
+    </summary>
+    <div style="padding-bottom:14px;">
+      ${tabelaComparativa}
+      ${s.resumo_ia ? `<div class="insightBox" style="margin-top:10px;"><h4>Resumo executivo</h4>${s.resumo_ia}</div>` : ''}
+      ${insights.length ? `<div class="insightBox" style="margin-top:8px;"><h4>Insights</h4>${insights.map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('')}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="copiarSaude('${s.id}')">📋 Copiar</button>
+        <button class="btn btn-ghost btn-sm" onclick="gerarPdfSaude('${s.id}')">🖨️ PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirEdicaoSaude('${s.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirSaude('${s.id}')">🗑️</button>
+      </div>
     </div>
-    ${opsHtml ? `<div style="font-size:12px;color:var(--text-dim);margin-top:6px;">${opsHtml}</div>` : ''}
-    ${s.resumo_ia ? `<div class="insightBox" style="margin-top:10px;"><h4>Resumo executivo</h4>${s.resumo_ia}</div>` : ''}
-    ${insights.length ? `<div class="insightBox" style="margin-top:8px;"><h4>Insights</h4>${insights.map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('')}</div>` : ''}
-    <div style="display:flex;gap:8px;margin-top:10px;">
-      <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="copiarSaude('${s.id}')">📋 Copiar</button>
-      <button class="btn btn-ghost btn-sm" onclick="gerarPdfSaude('${s.id}')">🖨️ PDF</button>
-      <button class="btn btn-ghost btn-sm" onclick="abrirEdicaoSaude('${s.id}')">✏️</button>
-      <button class="btn btn-danger btn-sm" onclick="excluirSaude('${s.id}')">🗑️</button>
-    </div>
-  </div>`;
+  </details>`;
 }
 
 function renderHistoricoSaude(){
@@ -3386,7 +3399,7 @@ function renderHistoricoSaude(){
   const anos = Object.keys(porAno).sort((a,b)=>b.localeCompare(a));
 
   wrap.innerHTML = anos.map((ano, idx) => `
-    <details ${idx===0 ? 'open' : ''} style="margin-bottom:12px;">
+    <details id="saudeAno-${ano}" ${idx===0 ? 'open' : ''} style="margin-bottom:12px;">
       <summary style="cursor:pointer;font-family:'Barlow Condensed';font-size:17px;color:var(--heading);padding:8px 4px;letter-spacing:.02em;">${ano} <span style="font-family:'Inter';font-size:12px;color:var(--text-faint);font-weight:400;">(${porAno[ano].length} mês${porAno[ano].length>1?'es':''})</span></summary>
       <div style="padding-top:8px;">${porAno[ano].map(s=>cardFechamentoSaudeHtml(s)).join('')}</div>
     </details>`).join('');
@@ -3412,12 +3425,23 @@ function renderGraficoEvolucaoSaude(){
       const altura = Math.max(4, Math.round((Math.abs(pct)/maxAbs)*100));
       const [ano, mes] = s.mes_referencia.split('-');
       const nomesCurtos = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-      return `<div class="barCol" style="min-width:52px;">
+      return `<div class="barCol" style="min-width:52px;cursor:pointer;" onclick="abrirMesNoHistorico('${s.mes_referencia}')" title="Clique pra ver o detalhe deste mês">
         <div class="barVal" style="color:${cor};font-size:11px;">${pct>0?'+':''}${pct.toFixed(0)}%</div>
         <div class="barTrack"><div class="barFill" style="height:${altura}%;background:${cor};"></div></div>
         <div class="barLbl" style="font-size:9.5px;">${nomesCurtos[parseInt(mes)-1]}/${ano.slice(2)}</div>
       </div>`;
     }).join('') + `</div>`;
+}
+
+function abrirMesNoHistorico(mesRef){
+  const ano = mesRef.split('-')[0];
+  const anoDetails = document.getElementById('saudeAno-'+ano);
+  if(anoDetails) anoDetails.open = true;
+  const mesDetails = document.getElementById('saudeMes-'+mesRef);
+  if(mesDetails){
+    mesDetails.open = true;
+    setTimeout(()=> mesDetails.scrollIntoView({behavior:'smooth', block:'center'}), 60);
+  }
 }
 
 function copiarSaude(id){
