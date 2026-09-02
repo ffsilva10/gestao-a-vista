@@ -167,6 +167,16 @@
   .sliderRow input[type=range]{flex:1;}
   .sliderRow .sliderVal{width:24px;text-align:right;font-family:'JetBrains Mono';font-size:12px;color:var(--text);}
 
+  /* ---------- PERFORMANCE S/ REASON ---------- */
+  .pdChartBox{background:#0b0e14;border-radius:12px;padding:18px 16px 10px;overflow-x:auto;}
+  .pdChartHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:0 4px;}
+  .pdChartHead .pdPerf{font-family:'Barlow Condensed';font-size:22px;font-weight:700;}
+  .pdBars{display:flex;align-items:flex-end;gap:6px;height:180px;min-width:max-content;}
+  .pdBarCol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:34px;height:100%;flex:none;}
+  .pdBarTrack{width:100%;height:140px;display:flex;flex-direction:column-reverse;border-radius:3px 3px 0 0;overflow:hidden;}
+  .pdBarLbl{font-size:9px;color:#c3ceda;margin-top:6px;}
+  .pdBarPct{font-size:9px;color:#fff;font-weight:700;margin-bottom:2px;}
+
   /* ---------- ORGANOGRAMA ---------- */
   .orgWrap{padding:10px 0 4px;}
   .orgTierLabel{text-align:center;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
@@ -310,6 +320,7 @@
     <div class="navItem" data-view="saude" onclick="goView('saude')">📊&nbsp; Saúde do Negócio</div>
     <div class="navItem" data-view="quarter" onclick="goView('quarter')">🗓️&nbsp; Quarter</div>
     <div class="navItem" data-view="organograma" onclick="goView('organograma')">🏛️&nbsp; Organograma</div>
+    <div class="navItem" data-view="perfdestino" onclick="goView('perfdestino')">🎯&nbsp; Perf. s/ Reason</div>
     <div class="sidebarFoot">
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
@@ -828,6 +839,44 @@
       </div>
     </section>
 
+    <!-- ---------- PERFORMANCE S/ REASON CODE ---------- -->
+    <section class="view" id="view-perfdestino">
+      <div class="pageHead">
+        <div><h2>Performance s/ Reason Code</h2><p>Performance real por destino — sem justificativa, o sentimento do cliente final</p></div>
+      </div>
+
+      <div class="panel">
+        <div class="row2">
+          <div class="field"><label>Mês de referência</label><input type="month" id="pdMes" onchange="carregarPerfDestinoMes()"></div>
+          <div class="field" style="display:flex;align-items:flex-end;">
+            <button class="btn btn-ghost" style="width:100%;" onclick="novoPerfDestinoMes()">🔄 Limpar formulário</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Destinos (UF) e performance no prazo (%)</label>
+          <div id="pdDestinosLista"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="adicionarLinhaDestino()">+ Adicionar destino</button>
+        </div>
+        <div id="pdOverallPreview" style="margin:10px 0;font-size:13px;color:var(--text-dim);"></div>
+        <button class="btn btn-primary" style="width:100%;" onclick="salvarPerfDestino()">💾 Salvar performance do mês</button>
+      </div>
+
+      <div class="panel">
+        <h3 id="pdGraficoTitulo">Performance por Destino</h3>
+        <div id="pdGraficoAtual"></div>
+      </div>
+
+      <div class="panel">
+        <h3 id="pdGraficoTituloAnterior" style="display:none;">Mesmo mês, ano anterior</h3>
+        <div id="pdGraficoAnterior"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Histórico</h3>
+        <div id="historicoPerfDestino" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -1146,7 +1195,7 @@ const STATUS_LABEL = { pendente:'Pendente', cobrado:'Cobrado', concluido:'Conclu
 const TIPO_LABEL = { positiva:'Positiva', negativa:'Negativa' };
 const INT_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
 
-let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], roteirosFeedback: [], resultadosAdama: [], quarters: [], user: null };
+let STATE = { equipe: [], reunioes: [], acoes: [], pontuacoes: [], cultura: '', usarRepertorioIA: true, pilares: [], marcos: [], projetos: [], eventos: [], repertorio: [], roteirosFeedback: [], resultadosAdama: [], quarters: [], performanceDestino: [], user: null };
 let impactoSel = 'medio';
 let tipoSel = 'positiva', intensidadeSel = 'media';
 
@@ -1186,6 +1235,7 @@ function goView(v){
   if(v==='saude') renderSaudeView();
   if(v==='quarter') renderQuarterView();
   if(v==='organograma') renderOrganograma();
+  if(v==='perfdestino') renderPerfDestinoView();
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -1252,7 +1302,7 @@ async function bootApp(){
 }
 
 async function carregarTudo(){
-  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp, rf, sn, qt] = await Promise.all([
+  const [eq, re, ac, pt, cu, pl, mc, pj, ev, rp, rf, sn, qt, pd] = await Promise.all([
     sb.from('fp_gestao_equipe').select('*').eq('ativo', true).order('nome'),
     sb.from('fp_gestao_reunioes').select('*').order('data_reuniao', {ascending:false}),
     sb.from('fp_gestao_acoes').select('*').order('created_at', {ascending:false}),
@@ -1265,7 +1315,8 @@ async function carregarTudo(){
     sb.from('fp_gestao_repertorio').select('*').order('data_nota', {ascending:false}),
     sb.from('fp_gestao_roteiros_feedback').select('*').order('created_at', {ascending:false}),
     sb.from('fp_gestao_resultados_adama').select('*').order('mes_referencia', {ascending:false}),
-    sb.from('fp_gestao_quarters').select('*').order('trimestre', {ascending:false})
+    sb.from('fp_gestao_quarters').select('*').order('trimestre', {ascending:false}),
+    sb.from('fp_gestao_performance_destino').select('*').order('mes_referencia', {ascending:false})
   ]);
   if(eq.error) return toast('Erro ao carregar equipe: ' + eq.error.message, true);
   STATE.equipe = eq.data || [];
@@ -1282,6 +1333,7 @@ async function carregarTudo(){
   STATE.roteirosFeedback = rf.data || [];
   STATE.resultadosAdama = sn.data || [];
   STATE.quarters = qt.data || [];
+  STATE.performanceDestino = pd.data || [];
   fillMembroSelects();
   await carregarMinhasConversas();
 }
@@ -3874,6 +3926,16 @@ function gerarPdfSaude(id){
       </div>`;
   }
 
+  const registroPerfDestino = STATE.performanceDestino.find(p => p.mes_referencia === s.mes_referencia);
+  let secaoPerfDestino = '';
+  if(registroPerfDestino && registroPerfDestino.destinos && registroPerfDestino.destinos.length){
+    secaoPerfDestino = `
+      <div style="margin-bottom:22px;">
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #4C8DFF;padding-bottom:6px;margin-bottom:12px;">Performance por Destino (s/ Reason Code)</div>
+        ${graficoPerfDestinoPdfHtml(registroPerfDestino.destinos)}
+      </div>`;
+  }
+
   const preview = document.getElementById('pdfSaudePreview');
   preview.innerHTML = `
   <div class="reportPage" style="max-width:100%;padding:0;overflow:hidden;">
@@ -3922,6 +3984,8 @@ function gerarPdfSaude(id){
       </div>
 
       ${secaoProjetos}
+
+      ${secaoPerfDestino}
 
       <div style="margin-bottom:22px;">
         <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #E67E22;padding-bottom:6px;margin-bottom:12px;">Destaques Operacionais</div>
@@ -4213,6 +4277,14 @@ function gerarPdfQuarter(id){
       <h4>Volume por operação</h4>
       ${(q.volumes_operacao||[]).map(o=>`<div class="repItem">${o.operacao}: <b>${o.volume}</b></div>`).join('') || '<div class="repEmpty">Nenhum detalhamento.</div>'}
     </div>
+    ${(() => {
+      const registrosTrimestre = performanceDestinoParaQuarter(q.ano, q.numero);
+      if(!registrosTrimestre.length) return '';
+      return `<div class="repSection">
+        <h4>Performance por Destino (s/ Reason Code) — média do trimestre</h4>
+        ${graficoPerfDestinoPdfHtml(registrosTrimestre)}
+      </div>`;
+    })()}
     <div class="repSection">
       <h4>Observações do trimestre</h4>
       <div class="repItem" style="border:none;">${q.observacoes || '—'}</div>
@@ -4281,6 +4353,224 @@ function renderOrganograma(){
     <div class="orgTierLabel" style="color:${ORG_CORES.equipe.cor};">${ORG_CORES.equipe.label}</div>
     <div class="orgChildrenRow">${filhos}</div>
   </div>`;
+}
+
+/* ======================= PERFORMANCE S/ REASON CODE ======================= */
+let linhasDestino = [];
+let perfDestinoViewInicializada = false;
+
+function renderPerfDestinoView(){
+  if(!perfDestinoViewInicializada){
+    novoPerfDestinoMes();
+    perfDestinoViewInicializada = true;
+  }
+  renderHistoricoPerfDestino();
+}
+
+function novoPerfDestinoMes(){
+  const hoje = new Date();
+  document.getElementById('pdMes').value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  linhasDestino = [];
+  renderLinhasDestino();
+  atualizarGraficosPerfDestino();
+}
+
+function renderLinhasDestino(){
+  const wrap = document.getElementById('pdDestinosLista');
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr 32px;gap:6px;font-size:10px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;padding:0 4px;"><span>UF / Destino</span><span>% No Prazo</span><span></span></div>` +
+    linhasDestino.map((l, idx) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 32px;gap:6px;margin-bottom:8px;align-items:center;">
+      <input type="text" value="${l.uf}" placeholder="Ex: SP" maxlength="4" oninput="linhasDestino[${idx}].uf=this.value.toUpperCase()" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;text-transform:uppercase;">
+      <input type="text" inputmode="decimal" value="${l.performance}" placeholder="Ex: 95" oninput="linhasDestino[${idx}].performance=this.value" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
+      <button class="eyeBtn" onclick="removerLinhaDestino(${idx})" title="Remover">🗑️</button>
+    </div>`).join('');
+}
+
+function adicionarLinhaDestino(){
+  linhasDestino.push({uf:'', performance:''});
+  renderLinhasDestino();
+}
+function removerLinhaDestino(idx){
+  linhasDestino.splice(idx,1);
+  renderLinhasDestino();
+}
+function destinosPreenchidos(){
+  return linhasDestino.filter(l => l.uf.trim() && l.performance!=='' && l.performance!=null)
+    .map(l => ({ uf: l.uf.trim(), performance: parseMoeda(l.performance) }));
+}
+
+function overallPerformance(registros){
+  if(!registros.length) return null;
+  return registros.reduce((s,r)=>s+r.performance,0)/registros.length;
+}
+
+function corPerfDestino(v){ return v>=95 ? '#4C8DFF' : v>=85 ? '#F2A93B' : '#E85D5D'; }
+
+function barrasPerformanceDestino(registros){
+  if(!registros.length) return '<p style="color:var(--text-faint);font-size:12.5px;padding:10px;">Nenhum destino cadastrado.</p>';
+  const ordenados = registros.slice().sort((a,b)=>a.performance-b.performance);
+  return `<div class="pdBars">` + ordenados.map(r=>{
+    const noPrazo = Math.max(0, Math.min(100, r.performance));
+    const foraDoPrazo = 100 - noPrazo;
+    const alturaTotal = 140;
+    const alturaFora = Math.round((foraDoPrazo/100)*alturaTotal);
+    const alturaNo = alturaTotal - alturaFora;
+    return `<div class="pdBarCol">
+      ${foraDoPrazo>0 ? `<div class="pdBarPct" style="color:#0F1F35;">${foraDoPrazo.toFixed(0)}%</div>` : ''}
+      <div class="pdBarTrack">
+        <div style="height:${alturaNo}px;background:#2D7DD2;display:flex;align-items:flex-start;justify-content:center;padding-top:4px;">
+          <span style="font-size:9px;color:#fff;font-weight:700;">${noPrazo.toFixed(0)}%</span>
+        </div>
+        ${alturaFora>0 ? `<div style="height:${alturaFora}px;background:#0F1F35;"></div>` : ''}
+      </div>
+      <div class="pdBarLbl">${r.uf}</div>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+function graficoPerfDestinoHtml(registros, tituloMes, corTitulo){
+  const overall = overallPerformance(registros);
+  return `<div class="pdChartBox">
+    <div class="pdChartHead">
+      <span style="font-family:'Barlow Condensed';font-size:15px;color:${corTitulo};font-weight:700;letter-spacing:.02em;">${tituloMes}</span>
+      <span class="pdPerf" style="color:${overall!=null?corPerfDestino(overall):'#8b93a1'};">${overall!=null? 'Performance '+overall.toFixed(0)+'%' : '—'}</span>
+    </div>
+    ${barrasPerformanceDestino(registros)}
+  </div>`;
+}
+
+function atualizarGraficosPerfDestino(){
+  const mesRef = document.getElementById('pdMes').value;
+  const registrosAtual = destinosPreenchidos();
+  const overall = overallPerformance(registrosAtual);
+  document.getElementById('pdOverallPreview').innerHTML = overall!=null ? `Performance geral do mês: <b style="color:${corPerfDestino(overall)}">${overall.toFixed(1)}%</b>` : '';
+  document.getElementById('pdGraficoAtual').innerHTML = graficoPerfDestinoHtml(registrosAtual, mesRef? mesLabel(mesRef).toUpperCase() : 'MÊS ATUAL', '#0F1F35');
+
+  if(mesRef){
+    const mesAnterior = mesAnoAnteriorRef(mesRef);
+    const registroAnterior = STATE.performanceDestino.find(p => p.mes_referencia === mesAnterior);
+    const tituloAnt = document.getElementById('pdGraficoTituloAnterior');
+    if(registroAnterior && registroAnterior.destinos && registroAnterior.destinos.length){
+      tituloAnt.style.display = 'block';
+      document.getElementById('pdGraficoAnterior').innerHTML = graficoPerfDestinoHtml(registroAnterior.destinos, mesLabel(mesAnterior).toUpperCase(), '#6C3483');
+    } else {
+      tituloAnt.style.display = 'none';
+      document.getElementById('pdGraficoAnterior').innerHTML = '';
+    }
+  }
+}
+document.addEventListener('input', (e)=>{
+  if(e.target && e.target.closest && e.target.closest('#pdDestinosLista')) atualizarGraficosPerfDestino();
+});
+
+function carregarPerfDestinoMes(){
+  const mesRef = document.getElementById('pdMes').value;
+  const existente = STATE.performanceDestino.find(p => p.mes_referencia === mesRef);
+  if(existente && existente.destinos){
+    linhasDestino = existente.destinos.map(d => ({ uf: d.uf, performance: String(d.performance) }));
+    toast(`${mesLabel(mesRef)} já tinha dados salvos — carregado.`);
+  } else {
+    linhasDestino = [];
+  }
+  renderLinhasDestino();
+  atualizarGraficosPerfDestino();
+}
+
+async function salvarPerfDestino(){
+  const mesRef = document.getElementById('pdMes').value;
+  const registros = destinosPreenchidos();
+  if(!mesRef){ toast('Selecione o mês de referência.', true); return; }
+  if(registros.length===0){ toast('Adicione ao menos um destino.', true); return; }
+  const payload = { mes_referencia: mesRef, destinos: registros };
+  const existente = STATE.performanceDestino.find(p => p.mes_referencia === mesRef);
+  const { error } = existente
+    ? await sb.from('fp_gestao_performance_destino').update(payload).eq('id', existente.id)
+    : await sb.from('fp_gestao_performance_destino').insert(payload);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  await carregarTudo();
+  novoPerfDestinoMes();
+  renderHistoricoPerfDestino();
+  toast(`${mesLabel(mesRef)} salvo.`);
+}
+
+function renderHistoricoPerfDestino(){
+  const wrap = document.getElementById('historicoPerfDestino');
+  if(STATE.performanceDestino.length===0){ wrap.innerHTML = emptyState('Nenhuma performance salva ainda.'); return; }
+  const porAno = {};
+  STATE.performanceDestino.forEach(p=>{
+    const ano = p.mes_referencia.split('-')[0];
+    if(!porAno[ano]) porAno[ano] = [];
+    porAno[ano].push(p);
+  });
+  const anos = Object.keys(porAno).sort((a,b)=>b.localeCompare(a));
+  wrap.innerHTML = anos.map((ano, idx) => `
+    <details ${idx===0?'open':''} style="margin-bottom:12px;">
+      <summary style="cursor:pointer;font-family:'Barlow Condensed';font-size:16px;color:var(--heading);padding:8px 4px;">${ano}</summary>
+      <div style="padding-top:8px;">
+        ${porAno[ano].sort((a,b)=>b.mes_referencia.localeCompare(a.mes_referencia)).map(p=>{
+          const overall = overallPerformance(p.destinos||[]);
+          return `
+          <details style="margin-bottom:10px;background:var(--panel2);border-radius:8px;padding:2px 14px;">
+            <summary style="cursor:pointer;padding:10px 0;display:flex;justify-content:space-between;align-items:center;">
+              <strong>${mesLabel(p.mes_referencia)}</strong>
+              <span class="mono" style="color:${overall!=null?corPerfDestino(overall):'var(--text-faint)'};font-weight:700;">${overall!=null?overall.toFixed(1)+'%':'—'}</span>
+            </summary>
+            <div style="padding-bottom:14px;">
+              ${graficoPerfDestinoHtml(p.destinos||[], mesLabel(p.mes_referencia).toUpperCase(), '#0F1F35')}
+              <button class="btn btn-danger btn-sm" style="margin-top:10px;" onclick="excluirPerfDestino('${p.id}')">🗑️ Excluir</button>
+            </div>
+          </details>`;
+        }).join('')}
+      </div>
+    </details>`).join('');
+}
+
+async function excluirPerfDestino(id){
+  if(!confirm('Excluir esta performance?')) return;
+  const { error } = await sb.from('fp_gestao_performance_destino').delete().eq('id', id);
+  if(error){ toast('Erro: ' + error.message, true); return; }
+  await carregarTudo();
+  renderHistoricoPerfDestino();
+  toast('Excluído.');
+}
+
+function graficoPerfDestinoPdfHtml(registros){
+  if(!registros || !registros.length) return '<div class="repEmpty">Nenhum dado registrado.</div>';
+  const overall = overallPerformance(registros);
+  const ordenados = registros.slice().sort((a,b)=>a.performance-b.performance);
+  const barras = ordenados.map(r=>{
+    const noPrazo = Math.max(0, Math.min(100, r.performance));
+    const foraDoPrazo = 100 - noPrazo;
+    const alturaTotal = 110;
+    const alturaFora = Math.round((foraDoPrazo/100)*alturaTotal);
+    const alturaNo = alturaTotal - alturaFora;
+    return `<div style="display:flex;flex-direction:column;align-items:center;width:28px;flex:none;">
+      ${foraDoPrazo>0 ? `<div style="font-size:8px;color:#C0392B;font-weight:700;">${foraDoPrazo.toFixed(0)}%</div>` : ''}
+      <div style="width:100%;height:${alturaTotal}px;display:flex;flex-direction:column-reverse;border-radius:2px 2px 0 0;overflow:hidden;">
+        <div style="height:${alturaNo}px;background:#2D7DD2;display:flex;align-items:flex-start;justify-content:center;padding-top:2px;">
+          <span style="font-size:8px;color:#fff;font-weight:700;">${noPrazo.toFixed(0)}</span>
+        </div>
+        ${alturaFora>0 ? `<div style="height:${alturaFora}px;background:#0F1F35;"></div>` : ''}
+      </div>
+      <div style="font-size:8px;color:#5c6472;margin-top:4px;">${r.uf}</div>
+    </div>`;
+  }).join('');
+  return `<div style="background:#0b0e14;border-radius:10px;padding:14px 12px 8px;overflow-x:auto;">
+    <div style="text-align:right;font-family:'Barlow Condensed';font-size:16px;font-weight:700;color:${overall!=null?corPerfDestino(overall):'#8b93a1'};margin-bottom:8px;">${overall!=null?'Performance '+overall.toFixed(0)+'%':'—'}</div>
+    <div style="display:flex;align-items:flex-end;gap:5px;">${barras}</div>
+  </div>`;
+}
+
+function performanceDestinoParaQuarter(ano, numero){
+  const meses = mesesDoTrimestre(ano, numero);
+  const registros = meses.map(m => STATE.performanceDestino.find(p => p.mes_referencia === m)).filter(Boolean);
+  if(registros.length===0) return [];
+  const mapa = {};
+  registros.forEach(r => (r.destinos||[]).forEach(d => {
+    if(!mapa[d.uf]) mapa[d.uf] = [];
+    mapa[d.uf].push(d.performance);
+  }));
+  return Object.entries(mapa).map(([uf, valores]) => ({ uf, performance: valores.reduce((s,v)=>s+v,0)/valores.length }));
 }
 
 /* ======================= TEMA ======================= */
