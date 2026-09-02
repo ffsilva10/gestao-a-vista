@@ -1033,6 +1033,7 @@
     <div class="modalHead"><h3>Editar fechamento</h3><button class="xClose" onclick="closeModal('modalEditarSaude')">✕</button></div>
     <input type="hidden" id="edSndId">
     <div class="field"><label>Resumo executivo</label><textarea id="edSndResumo" rows="6"></textarea></div>
+    <div class="field"><label>Insights (um por linha)</label><textarea id="edSndInsights" rows="7"></textarea></div>
     <button class="btn btn-primary" style="width:100%" onclick="salvarEdicaoSaude()">Salvar alterações</button>
   </div>
 </div>
@@ -3737,13 +3738,23 @@ function abrirEdicaoSaude(id){
   if(!s) return;
   document.getElementById('edSndId').value = id;
   document.getElementById('edSndResumo').value = s.resumo_ia || '';
+  let insights = [];
+  try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
+  document.getElementById('edSndInsights').value = insights.join('\n');
   openModal('modalEditarSaude');
 }
 
 async function salvarEdicaoSaude(){
   const id = document.getElementById('edSndId').value;
   const novoTexto = document.getElementById('edSndResumo').value.trim();
-  const { error } = await sb.from('fp_gestao_resultados_adama').update({ resumo_ia: novoTexto }).eq('id', id);
+  const novosInsights = document.getElementById('edSndInsights').value
+    .split('\n')
+    .map(l=>l.trim())
+    .filter(Boolean);
+  const { error } = await sb.from('fp_gestao_resultados_adama').update({
+    resumo_ia: novoTexto,
+    insights_ia: JSON.stringify(novosInsights)
+  }).eq('id', id);
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   closeModal('modalEditarSaude');
   await carregarTudo();
