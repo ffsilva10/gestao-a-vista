@@ -3321,24 +3321,36 @@ function novoFechamentoSaude(){
   document.getElementById('sndEvolucaoPreview').textContent = '';
   document.getElementById('saudeResultado').style.display = 'none';
   resumoSaudeGerado = null;
-  linhasOperacaoSaude = [{operacao:'Venda', volume:''}, {operacao:'Transferência', volume:''}, {operacao:'Retorno de AG', volume:''}];
+  linhasOperacaoSaude = [{operacao:'Venda', volume:'', performance:''}, {operacao:'Transferência', volume:'', performance:''}, {operacao:'Retorno de AG', volume:'', performance:''}];
   renderLinhasOperacaoSaude();
 }
 
 function renderLinhasOperacaoSaude(){
   const wrap = document.getElementById('sndOperacoesLista');
-  wrap.innerHTML = linhasOperacaoSaude.map((l, idx) => `
-    <div class="row2" style="margin-bottom:8px;align-items:center;">
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 32px;gap:6px;font-size:10px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;padding:0 4px;"><span>Operação</span><span>Volume</span><span>Performance %</span><span></span></div>` +
+    linhasOperacaoSaude.map((l, idx) => `
+    <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 32px;gap:6px;margin-bottom:8px;align-items:center;">
       <input type="text" value="${l.operacao}" placeholder="Operação" oninput="linhasOperacaoSaude[${idx}].operacao=this.value" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
-      <div style="display:flex;gap:6px;">
-        <input type="text" inputmode="decimal" value="${l.volume}" placeholder="Volume" oninput="linhasOperacaoSaude[${idx}].volume=this.value" style="flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
-        <button class="eyeBtn" onclick="removerLinhaOperacao(${idx})" title="Remover">🗑️</button>
-      </div>
-    </div>`).join('');
+      <input type="text" inputmode="decimal" value="${l.volume}" placeholder="Volume" oninput="linhasOperacaoSaude[${idx}].volume=this.value" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
+      <input type="text" inputmode="decimal" value="${l.performance||''}" placeholder="Ex: 99" oninput="linhasOperacaoSaude[${idx}].performance=this.value; atualizarPerformanceConsolidada();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
+      <button class="eyeBtn" onclick="removerLinhaOperacao(${idx})" title="Remover">🗑️</button>
+    </div>`).join('') +
+    `<div id="sndPerformanceConsolidada" style="margin-top:4px;font-size:13px;color:var(--text-dim);"></div>`;
+  atualizarPerformanceConsolidada();
+}
+
+function atualizarPerformanceConsolidada(){
+  const el = document.getElementById('sndPerformanceConsolidada');
+  if(!el) return;
+  const validos = linhasOperacaoSaude.filter(l => l.operacao.trim() && l.performance !== '' && l.performance != null);
+  if(validos.length===0){ el.textContent = ''; return; }
+  const media = validos.reduce((s,l)=>s+parseMoeda(l.performance), 0) / validos.length;
+  const cor = media>=98 ? 'var(--green)' : media>=95 ? 'var(--amber)' : 'var(--red)';
+  el.innerHTML = `Performance consolidada do mês: <b style="color:${cor}">${media.toFixed(1)}%</b> — ${validos.map(l=>`${l.operacao}: <b style="color:var(--text)">${parseMoeda(l.performance).toFixed(0)}%</b>`).join(' · ')}`;
 }
 
 function adicionarLinhaOperacao(){
-  linhasOperacaoSaude.push({operacao:'', volume:''});
+  linhasOperacaoSaude.push({operacao:'', volume:'', performance:''});
   renderLinhasOperacaoSaude();
 }
 function removerLinhaOperacao(idx){
@@ -3346,7 +3358,11 @@ function removerLinhaOperacao(idx){
   renderLinhasOperacaoSaude();
 }
 function operacoesPreenchidas(){
-  return linhasOperacaoSaude.filter(l => l.operacao.trim() && l.volume !== '').map(l => ({ operacao: l.operacao.trim(), volume: parseMoeda(l.volume) }));
+  return linhasOperacaoSaude.filter(l => l.operacao.trim() && l.volume !== '').map(l => ({
+    operacao: l.operacao.trim(),
+    volume: parseMoeda(l.volume),
+    performance: (l.performance!=null && l.performance!=='') ? parseMoeda(l.performance) : null
+  }));
 }
 
 function preencherVolumeAnteriorAuto(){
@@ -3508,13 +3524,17 @@ function cardFechamentoSaudeHtml(s){
   try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
 
   const tabelaComparativa = listaOps.length ? `<div class="tableWrap"><table style="margin-top:10px;">
-    <tr><th>Operação</th><th>${anoAtualNum}</th><th>${anoAnteriorNum}</th><th>%</th></tr>
-    ${listaOps.map(o=>`<tr>
+    <tr><th>Operação</th><th>${anoAtualNum}</th><th>${anoAnteriorNum}</th><th>%</th><th>Perf.</th></tr>
+    ${listaOps.map(o=>{
+      const original = (s.volumes_operacao||[]).find(v=>v.operacao===o.operacao);
+      const perf = original ? original.performance : null;
+      return `<tr>
       <td>${o.operacao}</td>
       <td class="mono">${o.volume}</td>
       <td class="mono" style="color:var(--text-dim);">${o.volumeAnterior!=null ? o.volumeAnterior : '—'}</td>
       <td class="mono" style="color:${o.pct!=null ? (o.pct>=0?'var(--green)':'var(--red)') : 'var(--text-faint)'};font-weight:700;">${o.pct!=null ? `${o.pct>0?'+':''}${o.pct.toFixed(1)}%` : '—'}</td>
-    </tr>`).join('')}
+      <td class="mono" style="color:${perf!=null ? (perf>=98?'var(--green)':perf>=95?'var(--amber)':'var(--red)') : 'var(--text-faint)'};font-weight:700;">${perf!=null ? perf+'%' : '—'}</td>
+    </tr>`;}).join('')}
   </table></div>` : '';
 
   return `
@@ -3602,7 +3622,11 @@ function copiarSaude(id){
   try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
   const opsComPct = pctOperacoes(s);
   const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, pct:null}));
-  const operacoes = listaOps.map(o=>`- ${o.operacao}: ${o.volume}${o.pct!=null ? ` (${o.pct>0?'+':''}${o.pct.toFixed(1)}% vs ano anterior)` : ''}`).join('\n');
+  const operacoes = listaOps.map(o=>{
+    const original = (s.volumes_operacao||[]).find(v=>v.operacao===o.operacao);
+    const perf = original ? original.performance : null;
+    return `- ${o.operacao}: ${o.volume}${o.pct!=null ? ` (${o.pct>0?'+':''}${o.pct.toFixed(1)}% vs ano anterior)` : ''}${perf!=null ? ` — Performance: ${perf}%` : ''}`;
+  }).join('\n');
   const texto = `📊 SAÚDE DO NEGÓCIO — ADAMA — ${mesLabel(s.mes_referencia)}
 
 ${s.resumo_ia || ''}
@@ -3650,48 +3674,100 @@ async function excluirSaude(id){
   toast('Fechamento excluído.');
 }
 
+function corPerformance(v){ return v>=98 ? '#1D9E75' : v>=95 ? '#E67E22' : '#C0392B'; }
+
 function gerarPdfSaude(id){
   const s = STATE.resultadosAdama.find(x=>x.id===id);
   if(!s) return;
   let insights = [];
   try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
-  let pctHtml = '';
+
+  const operacoes = s.volumes_operacao || [];
+  const comPerformance = operacoes.filter(o => o.performance!=null);
+  const performanceMedia = comPerformance.length ? comPerformance.reduce((soma,o)=>soma+o.performance,0)/comPerformance.length : null;
+
+  let pctEvolucao = null;
   if(s.volume_atual!=null && s.volume_ano_anterior){
-    const pct = ((s.volume_atual-s.volume_ano_anterior)/s.volume_ano_anterior)*100;
-    const cor = pct>=0 ? '#1D9E75' : '#C0392B';
-    pctHtml = `<div class="repKpi"><div class="n" style="color:${cor}">${pct>0?'+':''}${pct.toFixed(1)}%</div><div class="l">Evolução ano a ano</div></div>`;
+    pctEvolucao = ((s.volume_atual-s.volume_ano_anterior)/s.volume_ano_anterior)*100;
   }
+
+  const barrasPerformance = operacoes.filter(o=>o.performance!=null).map(o => {
+    const cor = corPerformance(o.performance);
+    return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+      <div style="width:110px;font-size:12.5px;color:#2c3948;flex:none;">${o.operacao}</div>
+      <div style="flex:1;background:#eef0f2;border-radius:8px;height:16px;overflow:hidden;">
+        <div style="width:${Math.min(100,o.performance)}%;height:100%;background:${cor};"></div>
+      </div>
+      <div style="width:46px;text-align:right;font-weight:700;font-size:13px;color:${cor};">${o.performance}%</div>
+    </div>`;
+  }).join('') || '<div class="repEmpty">Nenhuma performance registrada pra este mês.</div>';
+
+  const volumesPorOperacao = operacoes.map(o =>
+    `<div style="display:flex;justify-content:space-between;font-size:12.5px;color:#2c3948;padding:4px 0;border-bottom:1px solid #eef0f2;">
+      <span>${o.operacao}</span><span style="font-weight:700;">${o.volume}</span>
+    </div>`).join('') || '<div class="repEmpty">Nenhum volume registrado.</div>';
+
+  const destaques = insights.map((i, idx) => {
+    const cores = ['#1D9E75','#2D7DD2','#6C3483','#E67E22','#C0392B'];
+    const cor = cores[idx % cores.length];
+    return `<div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-start;">
+      <div style="width:9px;height:9px;border-radius:50%;background:${cor};margin-top:5px;flex:none;"></div>
+      <div style="font-size:12.5px;color:#2c3948;line-height:1.55;">${i}</div>
+    </div>`;
+  }).join('') || '<div class="repEmpty">Nenhum destaque registrado.</div>';
+
   const preview = document.getElementById('pdfSaudePreview');
   preview.innerHTML = `
-  <div class="reportPage" style="max-width:100%;">
-    <div class="repHead">
-      <div><h2>Saúde do Negócio — ADAMA</h2><div class="repSub">Coordenação 4PL · Fechamento de ${mesLabel(s.mes_referencia)}</div></div>
-      <div class="repPeriodo"><b>${fmtDate(todayISO())}</b>Gerado em</div>
+  <div class="reportPage" style="max-width:100%;padding:0;overflow:hidden;">
+    <div style="background:#0F1F35;color:#fff;padding:22px 30px;">
+      <div style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#8fa3c2;">Resumo Executivo · ${mesLabel(s.mes_referencia)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px;">
+        <div>
+          <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;">Operação ADAMA · Coordenação 4PL</div>
+          <div style="font-size:12px;color:#c3ceda;margin-top:2px;">Fábio Ferreira · Bravo Logística</div>
+        </div>
+        <div style="font-size:11px;color:#c3ceda;text-align:right;">Atualização para Diretoria</div>
+      </div>
     </div>
-    <div class="repKpis">
-      ${pctHtml}
-      <div class="repKpi"><div class="n" style="font-size:14px;">${s.regiao_maior_impacto || '—'}</div><div class="l">Região de maior impacto</div></div>
-    </div>
-    <div class="repSection" style="margin-top:0;">
-      <h4>Resumo executivo</h4>
-      <div class="repItem" style="border:none;">${s.resumo_ia || '—'}</div>
-    </div>
-    <div class="repSection">
-      <h4>Volume por operação</h4>
-      ${(() => {
-        const opsComPct = pctOperacoes(s);
-        const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, pct:null}));
-        return listaOps.length ? listaOps.map(o=>`<div class="repItem">${o.operacao}: <b>${o.volume}</b>${o.pct!=null ? ` <span style="color:${o.pct>=0?'#1D9E75':'#C0392B'};font-weight:700;">(${o.pct>0?'+':''}${o.pct.toFixed(1)}%)</span>` : ''}</div>`).join('') : '<div class="repEmpty">Nenhum detalhamento registrado.</div>';
-      })()}
-    </div>
-    <div class="repSection">
-      <h4>Insights</h4>
-      ${insights.map(i=>`<div class="repItem">${i}</div>`).join('') || '<div class="repEmpty">Nenhum insight registrado.</div>'}
-    </div>
-    <div class="repSection neg">
-      <h4>Ocorrências e devoluções</h4>
-      <div class="repItem" style="border:none;">Ocorrências: ${s.ocorrencias || '—'}</div>
-      <div class="repItem" style="border:none;">Devoluções: ${s.devolucoes || '—'}</div>
+    <div style="padding:22px 30px 30px;">
+      <div style="background:#eef4fb;border-left:4px solid #2D7DD2;border-radius:6px;padding:14px 18px;font-size:12.5px;color:#1c2733;line-height:1.6;font-style:italic;margin-bottom:20px;">
+        ${s.resumo_ia || 'Nenhum resumo executivo gerado ainda para este mês.'}
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;">
+        <div style="background:#f1faf6;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#1D9E75;font-weight:700;">Performance Geral</div>
+          <div style="font-family:'Barlow Condensed';font-size:30px;font-weight:700;color:${performanceMedia!=null ? corPerformance(performanceMedia) : '#8b93a1'};margin-top:2px;">${performanceMedia!=null ? performanceMedia.toFixed(0)+'%' : '—'}</div>
+        </div>
+        <div style="background:#eef4fb;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#2D7DD2;font-weight:700;">Volume Total</div>
+          <div style="font-family:'Barlow Condensed';font-size:30px;font-weight:700;color:#0F1F35;margin-top:2px;">${s.volume_atual != null ? s.volume_atual : '—'}</div>
+        </div>
+        ${pctEvolucao!=null ? `<div style="background:${pctEvolucao>=0?'#f1faf6':'#fbeeee'};border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${pctEvolucao>=0?'#1D9E75':'#C0392B'};font-weight:700;">Evolução vs Ano Anterior</div>
+          <div style="font-family:'Barlow Condensed';font-size:30px;font-weight:700;color:${pctEvolucao>=0?'#1D9E75':'#C0392B'};margin-top:2px;">${pctEvolucao>0?'+':''}${pctEvolucao.toFixed(1)}%</div>
+        </div>` : ''}
+        <div style="background:#f7f0fa;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#6C3483;font-weight:700;">Região de Maior Impacto</div>
+          <div style="font-family:'Barlow Condensed';font-size:18px;font-weight:700;color:#0F1F35;margin-top:8px;">${s.regiao_maior_impacto || '—'}</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:24px;">
+        <div>
+          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #1D9E75;padding-bottom:6px;margin-bottom:14px;">Performance por Operação</div>
+          ${barrasPerformance}
+          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #2D7DD2;padding-bottom:6px;margin:20px 0 12px;">Volume por Operação</div>
+          ${volumesPorOperacao}
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #E67E22;padding-bottom:6px;margin-bottom:14px;">Destaques Operacionais</div>
+          ${destaques}
+          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #C0392B;padding-bottom:6px;margin:20px 0 12px;">Ocorrências e Devoluções</div>
+          <div style="font-size:12.5px;color:#2c3948;padding:4px 0;">Ocorrências: <b>${s.ocorrencias || '—'}</b></div>
+          <div style="font-size:12.5px;color:#2c3948;padding:4px 0;">Devoluções: <b>${s.devolucoes || '—'}</b></div>
+        </div>
+      </div>
     </div>
   </div>`;
   preview.style.display = 'block';
