@@ -758,6 +758,16 @@
       </div>
 
       <div class="panel">
+        <h3>Projetos no PDF executivo</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Marque quais projetos devem aparecer no resumo executivo (ex: atualizações de B.I) — vale pra qualquer PDF que você gerar abaixo</p>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;">
+          <input type="checkbox" id="sndIncluirProjetos" onchange="renderSelecaoProjetosSaude()" style="width:16px;height:16px;">
+          Incluir seção de projetos no PDF
+        </label>
+        <div id="sndSelecaoProjetos" style="display:none;"></div>
+      </div>
+
+      <div class="panel">
         <h3>Histórico de fechamentos</h3>
         <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Agrupado por ano — clique pra abrir/fechar cada ano</p>
         <div id="historicoSaude" style="margin-top:10px;"></div>
@@ -3312,6 +3322,7 @@ function renderSaudeView(){
     saudeViewInicializada = true;
   }
   renderHistoricoSaude();
+  renderSelecaoProjetosSaude();
 }
 
 function novoFechamentoSaude(){
@@ -3751,6 +3762,26 @@ async function excluirSaude(id){
 
 function corPerformance(v){ return v>=98 ? '#1D9E75' : v>=95 ? '#E67E22' : '#C0392B'; }
 
+let projetosSelecionadosSaude = [];
+
+function renderSelecaoProjetosSaude(){
+  const incluir = document.getElementById('sndIncluirProjetos').checked;
+  const wrap = document.getElementById('sndSelecaoProjetos');
+  wrap.style.display = incluir ? 'block' : 'none';
+  if(!incluir) return;
+  if(STATE.projetos.length===0){ wrap.innerHTML = emptyState('Nenhum projeto cadastrado ainda.'); return; }
+  wrap.innerHTML = STATE.projetos.map(p => `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;">
+      <input type="checkbox" class="chkProjetoSaude" value="${p.id}" ${projetosSelecionadosSaude.includes(p.id)?'checked':''} onchange="toggleProjetoSaude('${p.id}', this.checked)" style="width:16px;height:16px;">
+      <span>${p.nome} <span style="color:var(--text-faint);font-size:11.5px;">— ${p.setor||'sem setor'} · ${STATUS_PROJETO_LABEL[p.status]}</span></span>
+    </label>`).join('');
+}
+
+function toggleProjetoSaude(id, marcado){
+  if(marcado && !projetosSelecionadosSaude.includes(id)) projetosSelecionadosSaude.push(id);
+  if(!marcado) projetosSelecionadosSaude = projetosSelecionadosSaude.filter(x=>x!==id);
+}
+
 function gerarPdfSaude(id){
   const s = STATE.resultadosAdama.find(x=>x.id===id);
   if(!s) return;
@@ -3802,11 +3833,31 @@ function gerarPdfSaude(id){
   const destaques = insights.map((i, idx) => {
     const cores = ['#1D9E75','#2D7DD2','#6C3483','#E67E22','#C0392B'];
     const cor = cores[idx % cores.length];
-    return `<div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-start;">
+    return `<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;">
       <div style="width:9px;height:9px;border-radius:50%;background:${cor};margin-top:5px;flex:none;"></div>
       <div style="font-size:12.5px;color:#2c3948;line-height:1.55;">${i}</div>
     </div>`;
   }).join('') || '<div class="repEmpty">Nenhum destaque registrado.</div>';
+
+  const incluirProjetos = document.getElementById('sndIncluirProjetos') && document.getElementById('sndIncluirProjetos').checked;
+  let secaoProjetos = '';
+  if(incluirProjetos && projetosSelecionadosSaude.length){
+    const projetosDoResumo = STATE.projetos.filter(p => projetosSelecionadosSaude.includes(p.id));
+    const coresStatus = { planejado:'#2D7DD2', em_andamento:'#E67E22', atrasado:'#C0392B', concluido:'#1D9E75' };
+    secaoProjetos = `
+      <div style="margin-bottom:22px;">
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #6C3483;padding-bottom:6px;margin-bottom:12px;">Andamento de Projetos</div>
+        ${projetosDoResumo.map(p => `
+          <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;padding-bottom:10px;border-bottom:1px solid #eef0f2;">
+            <div style="width:9px;height:9px;border-radius:50%;background:${coresStatus[p.status]||'#8b93a1'};margin-top:5px;flex:none;"></div>
+            <div style="flex:1;">
+              <div style="font-size:12.5px;color:#1c2733;font-weight:700;">${p.nome} <span style="font-weight:400;color:#8b93a1;">— ${STATUS_PROJETO_LABEL[p.status]}</span></div>
+              ${p.andamento ? `<div style="font-size:12px;color:#2c3948;margin-top:2px;">${p.andamento}</div>` : ''}
+              ${p.proxima_etapa ? `<div style="font-size:11.5px;color:#2D7DD2;margin-top:3px;">➡️ ${p.proxima_etapa}</div>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
 
   const preview = document.getElementById('pdfSaudePreview');
   preview.innerHTML = `
@@ -3846,22 +3897,26 @@ function gerarPdfSaude(id){
       </div>
 
       <div style="margin-bottom:22px;">
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #1D9E75;padding-bottom:6px;margin-bottom:12px;">Performance por Operação</div>
+        ${barrasPerformance}
+      </div>
+
+      <div style="margin-bottom:22px;">
         <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #2D7DD2;padding-bottom:6px;margin-bottom:12px;">Volumetria — Previsto x Real x Ano Anterior</div>
         ${tabelaForecast}
       </div>
 
-      <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:24px;">
-        <div>
-          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #1D9E75;padding-bottom:6px;margin-bottom:14px;">Performance por Operação</div>
-          ${barrasPerformance}
-        </div>
-        <div>
-          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #E67E22;padding-bottom:6px;margin-bottom:14px;">Destaques Operacionais</div>
-          ${destaques}
-          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #C0392B;padding-bottom:6px;margin:20px 0 12px;">Ocorrências e Devoluções</div>
-          <div style="font-size:12.5px;color:#2c3948;padding:4px 0;">Ocorrências: <b>${s.ocorrencias || '—'}</b></div>
-          <div style="font-size:12.5px;color:#2c3948;padding:4px 0;">Devoluções: <b>${s.devolucoes || '—'}</b></div>
-        </div>
+      ${secaoProjetos}
+
+      <div style="margin-bottom:22px;">
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #E67E22;padding-bottom:6px;margin-bottom:12px;">Destaques Operacionais</div>
+        ${destaques}
+      </div>
+
+      <div>
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #C0392B;padding-bottom:6px;margin-bottom:12px;">Ocorrências e Devoluções</div>
+        <div style="font-size:12.5px;color:#2c3948;padding:4px 0;">Ocorrências: <b>${s.ocorrencias || '—'}</b></div>
+        <div style="font-size:12.5px;color:#2c3948;padding:4px 0;">Devoluções: <b>${s.devolucoes || '—'}</b></div>
       </div>
     </div>
   </div>`;
