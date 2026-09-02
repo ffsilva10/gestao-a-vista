@@ -3321,18 +3321,19 @@ function novoFechamentoSaude(){
   document.getElementById('sndEvolucaoPreview').textContent = '';
   document.getElementById('saudeResultado').style.display = 'none';
   resumoSaudeGerado = null;
-  linhasOperacaoSaude = [{operacao:'Venda', volume:'', performance:''}, {operacao:'Transferência', volume:'', performance:''}, {operacao:'Retorno de AG', volume:'', performance:''}];
+  linhasOperacaoSaude = [{operacao:'Venda', volume:'', performance:'', previsto:''}, {operacao:'Transferência', volume:'', performance:'', previsto:''}, {operacao:'Retorno de AG', volume:'', performance:'', previsto:''}, {operacao:'Devolução', volume:'', performance:'', previsto:''}];
   renderLinhasOperacaoSaude();
 }
 
 function renderLinhasOperacaoSaude(){
   const wrap = document.getElementById('sndOperacoesLista');
-  wrap.innerHTML = `<div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 32px;gap:6px;font-size:10px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;padding:0 4px;"><span>Operação</span><span>Volume</span><span>Performance %</span><span></span></div>` +
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:1.2fr .9fr .9fr .8fr 32px;gap:6px;font-size:10px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;padding:0 4px;"><span>Operação</span><span>Prev.</span><span>Real</span><span>Perf. %</span><span></span></div>` +
     linhasOperacaoSaude.map((l, idx) => `
-    <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 32px;gap:6px;margin-bottom:8px;align-items:center;">
-      <input type="text" value="${l.operacao}" placeholder="Operação" oninput="linhasOperacaoSaude[${idx}].operacao=this.value" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
-      <input type="text" inputmode="decimal" value="${l.volume}" placeholder="Volume" oninput="linhasOperacaoSaude[${idx}].volume=this.value" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
-      <input type="text" inputmode="decimal" value="${l.performance||''}" placeholder="Ex: 99" oninput="linhasOperacaoSaude[${idx}].performance=this.value; atualizarPerformanceConsolidada();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
+    <div style="display:grid;grid-template-columns:1.2fr .9fr .9fr .8fr 32px;gap:6px;margin-bottom:8px;align-items:center;">
+      <input type="text" value="${l.operacao}" placeholder="Operação" oninput="linhasOperacaoSaude[${idx}].operacao=this.value" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 8px;border-radius:8px;font-size:12.5px;">
+      <input type="text" inputmode="decimal" value="${l.previsto||''}" placeholder="Prev." oninput="linhasOperacaoSaude[${idx}].previsto=this.value; atualizarPerformanceConsolidada();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 8px;border-radius:8px;font-size:12.5px;">
+      <input type="text" inputmode="decimal" value="${l.volume}" placeholder="Real" oninput="linhasOperacaoSaude[${idx}].volume=this.value; atualizarPerformanceConsolidada();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 8px;border-radius:8px;font-size:12.5px;">
+      <input type="text" inputmode="decimal" value="${l.performance||''}" placeholder="Ex: 99" oninput="linhasOperacaoSaude[${idx}].performance=this.value; atualizarPerformanceConsolidada();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 8px;border-radius:8px;font-size:12.5px;">
       <button class="eyeBtn" onclick="removerLinhaOperacao(${idx})" title="Remover">🗑️</button>
     </div>`).join('') +
     `<div id="sndPerformanceConsolidada" style="margin-top:4px;font-size:13px;color:var(--text-dim);"></div>`;
@@ -3343,14 +3344,28 @@ function atualizarPerformanceConsolidada(){
   const el = document.getElementById('sndPerformanceConsolidada');
   if(!el) return;
   const validos = linhasOperacaoSaude.filter(l => l.operacao.trim() && l.performance !== '' && l.performance != null);
-  if(validos.length===0){ el.textContent = ''; return; }
-  const media = validos.reduce((s,l)=>s+parseMoeda(l.performance), 0) / validos.length;
-  const cor = media>=98 ? 'var(--green)' : media>=95 ? 'var(--amber)' : 'var(--red)';
-  el.innerHTML = `Performance consolidada do mês: <b style="color:${cor}">${media.toFixed(1)}%</b> — ${validos.map(l=>`${l.operacao}: <b style="color:var(--text)">${parseMoeda(l.performance).toFixed(0)}%</b>`).join(' · ')}`;
+  const comForecast = linhasOperacaoSaude.filter(l => l.operacao.trim() && l.previsto!=='' && l.previsto!=null && l.volume!=='' && l.volume!=null);
+  let htmlPerf = '', htmlForecast = '';
+  if(validos.length){
+    const media = validos.reduce((s,l)=>s+parseMoeda(l.performance), 0) / validos.length;
+    const cor = media>=98 ? 'var(--green)' : media>=95 ? 'var(--amber)' : 'var(--red)';
+    htmlPerf = `Performance consolidada do mês: <b style="color:${cor}">${media.toFixed(1)}%</b> — ${validos.map(l=>`${l.operacao}: <b style="color:var(--text)">${parseMoeda(l.performance).toFixed(0)}%</b>`).join(' · ')}`;
+  }
+  if(comForecast.length){
+    const linhas = comForecast.map(l=>{
+      const prev = parseMoeda(l.previsto), real = parseMoeda(l.volume);
+      const atingimento = prev ? (real/prev)*100 : null;
+      const varTon = real - prev;
+      const cor = atingimento==null ? 'var(--text-dim)' : atingimento>=100 ? 'var(--green)' : atingimento>=90 ? 'var(--amber)' : 'var(--red)';
+      return `${l.operacao}: <b style="color:${cor}">${atingimento!=null?atingimento.toFixed(0)+'%':'—'}</b> do previsto (${varTon>0?'+':''}${varTon.toFixed(0)} ton)`;
+    }).join(' · ');
+    htmlForecast = `<div style="margin-top:4px;">Atingimento do forecast: ${linhas}</div>`;
+  }
+  el.innerHTML = htmlPerf + htmlForecast;
 }
 
 function adicionarLinhaOperacao(){
-  linhasOperacaoSaude.push({operacao:'', volume:'', performance:''});
+  linhasOperacaoSaude.push({operacao:'', volume:'', performance:'', previsto:''});
   renderLinhasOperacaoSaude();
 }
 function removerLinhaOperacao(idx){
@@ -3361,7 +3376,8 @@ function operacoesPreenchidas(){
   return linhasOperacaoSaude.filter(l => l.operacao.trim() && l.volume !== '').map(l => ({
     operacao: l.operacao.trim(),
     volume: parseMoeda(l.volume),
-    performance: (l.performance!=null && l.performance!=='') ? parseMoeda(l.performance) : null
+    performance: (l.performance!=null && l.performance!=='') ? parseMoeda(l.performance) : null,
+    previsto: (l.previsto!=null && l.previsto!=='') ? parseMoeda(l.previsto) : null
   }));
 }
 
@@ -3508,33 +3524,44 @@ function pctOperacoes(s){
   });
 }
 
+function linhasOperacaoCompletas(s){
+  const anterior = STATE.resultadosAdama.find(x=>x.mes_referencia === mesAnoAnteriorRef(s.mes_referencia));
+  const mapaAnterior = {};
+  if(anterior) (anterior.volumes_operacao||[]).forEach(o=>{ mapaAnterior[o.operacao] = o.volume; });
+
+  return (s.volumes_operacao||[]).map(o=>{
+    const prev = o.previsto!=null ? o.previsto : null;
+    const real = o.volume;
+    const pctVar = (prev!=null && prev!==0) ? (real/prev)*100 : null;
+    const varTon = prev!=null ? (real-prev) : null;
+    const py = mapaAnterior[o.operacao] != null ? mapaAnterior[o.operacao] : null;
+    const pyPct = (py!=null && py!==0) ? ((real-py)/py)*100 : null;
+    return { operacao: o.operacao, prev, real, pctVar, varTon, py, pyPct, performance: o.performance };
+  });
+}
+
 function cardFechamentoSaudeHtml(s){
   let pctHtml = '';
   if(s.volume_atual!=null && s.volume_ano_anterior){
     const pct = ((s.volume_atual-s.volume_ano_anterior)/s.volume_ano_anterior)*100;
     pctHtml = `<span class="mono" style="color:${pct>=0?'var(--green)':'var(--red)'};font-weight:700;">${pct>0?'+':''}${pct.toFixed(1)}%</span>`;
   }
-  const opsComPct = pctOperacoes(s);
-  const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, volumeAnterior:null, pct:null}));
-  const [anoAtualNum] = s.mes_referencia.split('-');
-  const anoAnteriorNum = parseInt(anoAtualNum)-1;
-
-  const resumoChip = listaOps.map(o=>o.operacao).join(', ');
+  const linhas = linhasOperacaoCompletas(s);
+  const resumoChip = linhas.map(o=>o.operacao).join(', ');
   let insights = [];
   try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
 
-  const tabelaComparativa = listaOps.length ? `<div class="tableWrap"><table style="margin-top:10px;">
-    <tr><th>Operação</th><th>${anoAtualNum}</th><th>${anoAnteriorNum}</th><th>%</th><th>Perf.</th></tr>
-    ${listaOps.map(o=>{
-      const original = (s.volumes_operacao||[]).find(v=>v.operacao===o.operacao);
-      const perf = original ? original.performance : null;
-      return `<tr>
+  const tabelaComparativa = linhas.length ? `<div class="tableWrap"><table style="margin-top:10px;">
+    <tr><th>Operação</th><th>Prev.</th><th>Real</th><th>%Var</th><th>Var Ton</th><th>PY</th><th>PY%</th></tr>
+    ${linhas.map(o=>`<tr>
       <td>${o.operacao}</td>
-      <td class="mono">${o.volume}</td>
-      <td class="mono" style="color:var(--text-dim);">${o.volumeAnterior!=null ? o.volumeAnterior : '—'}</td>
-      <td class="mono" style="color:${o.pct!=null ? (o.pct>=0?'var(--green)':'var(--red)') : 'var(--text-faint)'};font-weight:700;">${o.pct!=null ? `${o.pct>0?'+':''}${o.pct.toFixed(1)}%` : '—'}</td>
-      <td class="mono" style="color:${perf!=null ? (perf>=98?'var(--green)':perf>=95?'var(--amber)':'var(--red)') : 'var(--text-faint)'};font-weight:700;">${perf!=null ? perf+'%' : '—'}</td>
-    </tr>`;}).join('')}
+      <td class="mono" style="color:var(--text-dim);">${o.prev!=null ? o.prev : '—'}</td>
+      <td class="mono">${o.real}</td>
+      <td class="mono" style="color:${o.pctVar!=null ? (o.pctVar>=100?'var(--green)':o.pctVar>=90?'var(--amber)':'var(--red)') : 'var(--text-faint)'};font-weight:700;">${o.pctVar!=null ? o.pctVar.toFixed(0)+'%' : '—'}</td>
+      <td class="mono" style="color:${o.varTon!=null ? (o.varTon>=0?'var(--green)':'var(--red)') : 'var(--text-faint)'};">${o.varTon!=null ? (o.varTon>0?'+':'')+o.varTon.toFixed(0) : '—'}</td>
+      <td class="mono" style="color:var(--text-dim);">${o.py!=null ? o.py : '—'}</td>
+      <td class="mono" style="color:${o.pyPct!=null ? (o.pyPct>=0?'var(--green)':'var(--red)') : 'var(--text-faint)'};font-weight:700;">${o.pyPct!=null ? (o.pyPct>0?'+':'')+o.pyPct.toFixed(0)+'%' : '—'}</td>
+    </tr>`).join('')}
   </table></div>` : '';
 
   return `
@@ -3620,13 +3647,9 @@ function copiarSaude(id){
   if(!s) return;
   let insights = [];
   try{ insights = JSON.parse(s.insights_ia || '[]'); } catch(_e){}
-  const opsComPct = pctOperacoes(s);
-  const listaOps = opsComPct || (s.volumes_operacao||[]).map(o=>({operacao:o.operacao, volume:o.volume, pct:null}));
-  const operacoes = listaOps.map(o=>{
-    const original = (s.volumes_operacao||[]).find(v=>v.operacao===o.operacao);
-    const perf = original ? original.performance : null;
-    return `- ${o.operacao}: ${o.volume}${o.pct!=null ? ` (${o.pct>0?'+':''}${o.pct.toFixed(1)}% vs ano anterior)` : ''}${perf!=null ? ` — Performance: ${perf}%` : ''}`;
-  }).join('\n');
+  const operacoes = linhasOperacaoCompletas(s).map(o =>
+    `- ${o.operacao}: Real ${o.real}${o.prev!=null ? ` | Prev ${o.prev} (${o.pctVar.toFixed(0)}% do previsto, ${o.varTon>0?'+':''}${o.varTon.toFixed(0)} ton)` : ''}${o.py!=null ? ` | PY ${o.py} (${o.pyPct>0?'+':''}${o.pyPct.toFixed(0)}% vs ano anterior)` : ''}${o.performance!=null ? ` | Performance ${o.performance}%` : ''}`
+  ).join('\n');
   const texto = `📊 SAÚDE DO NEGÓCIO — ADAMA — ${mesLabel(s.mes_referencia)}
 
 ${s.resumo_ia || ''}
@@ -3702,10 +3725,27 @@ function gerarPdfSaude(id){
     </div>`;
   }).join('') || '<div class="repEmpty">Nenhuma performance registrada pra este mês.</div>';
 
-  const volumesPorOperacao = operacoes.map(o =>
-    `<div style="display:flex;justify-content:space-between;font-size:12.5px;color:#2c3948;padding:4px 0;border-bottom:1px solid #eef0f2;">
-      <span>${o.operacao}</span><span style="font-weight:700;">${o.volume}</span>
-    </div>`).join('') || '<div class="repEmpty">Nenhum volume registrado.</div>';
+  const linhasCompletas = linhasOperacaoCompletas(s);
+  const tabelaForecast = linhasCompletas.length ? `<table style="width:100%;border-collapse:collapse;font-size:11.5px;">
+    <tr style="border-bottom:2px solid #0F1F35;">
+      <th style="text-align:left;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Operação</th>
+      <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Prev.</th>
+      <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Real</th>
+      <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">%Var</th>
+      <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Var Ton</th>
+      <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">PY</th>
+      <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">PY%</th>
+    </tr>
+    ${linhasCompletas.map(o=>`<tr style="border-bottom:1px solid #eef0f2;">
+      <td style="padding:6px 4px;color:#1c2733;font-weight:600;">${o.operacao}</td>
+      <td style="text-align:right;padding:6px 4px;color:#5c6472;">${o.prev!=null ? o.prev : '—'}</td>
+      <td style="text-align:right;padding:6px 4px;color:#1c2733;font-weight:700;">${o.real}</td>
+      <td style="text-align:right;padding:6px 4px;color:${o.pctVar!=null ? (o.pctVar>=100?'#1D9E75':o.pctVar>=90?'#E67E22':'#C0392B') : '#8b93a1'};font-weight:700;">${o.pctVar!=null ? o.pctVar.toFixed(0)+'%' : '—'}</td>
+      <td style="text-align:right;padding:6px 4px;color:${o.varTon!=null ? (o.varTon>=0?'#1D9E75':'#C0392B') : '#8b93a1'};">${o.varTon!=null ? (o.varTon>0?'+':'')+o.varTon.toFixed(0) : '—'}</td>
+      <td style="text-align:right;padding:6px 4px;color:#5c6472;">${o.py!=null ? o.py : '—'}</td>
+      <td style="text-align:right;padding:6px 4px;color:${o.pyPct!=null ? (o.pyPct>=0?'#1D9E75':'#C0392B') : '#8b93a1'};font-weight:700;">${o.pyPct!=null ? (o.pyPct>0?'+':'')+o.pyPct.toFixed(0)+'%' : '—'}</td>
+    </tr>`).join('')}
+  </table>` : '<div class="repEmpty">Nenhum detalhamento por operação registrado.</div>';
 
   const destaques = insights.map((i, idx) => {
     const cores = ['#1D9E75','#2D7DD2','#6C3483','#E67E22','#C0392B'];
@@ -3753,12 +3793,15 @@ function gerarPdfSaude(id){
         </div>
       </div>
 
+      <div style="margin-bottom:22px;">
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #2D7DD2;padding-bottom:6px;margin-bottom:12px;">Volumetria — Previsto x Real x Ano Anterior</div>
+        ${tabelaForecast}
+      </div>
+
       <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:24px;">
         <div>
           <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #1D9E75;padding-bottom:6px;margin-bottom:14px;">Performance por Operação</div>
           ${barrasPerformance}
-          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #2D7DD2;padding-bottom:6px;margin:20px 0 12px;">Volume por Operação</div>
-          ${volumesPorOperacao}
         </div>
         <div>
           <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #E67E22;padding-bottom:6px;margin-bottom:14px;">Destaques Operacionais</div>
