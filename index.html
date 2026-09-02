@@ -1043,6 +1043,7 @@
   <div class="modal">
     <div class="modalHead"><h3 id="modalInsightsIATitle">Insights IA</h3><button class="xClose" onclick="descartarInsightsIA()">✕</button></div>
     <div class="insightBox"><h4>Perfil sugerido</h4><div id="outInsightsIAPerfil"></div></div>
+    <div class="insightBox"><h4>Temperamento predominante</h4><div id="outInsightsIATemperamento"></div></div>
     <div class="insightBox"><h4>Alinhamento cultural</h4><div id="outInsightsIAAlinhamento"></div></div>
     <div class="insightBox"><h4>Insights completos</h4><div id="outInsightsIATexto"></div></div>
     <div style="display:flex;gap:8px;margin-top:10px;">
@@ -1473,7 +1474,7 @@ function renderEquipe(){
       <div class="mcTop">
         <div><div class="mcName">${m.nome}</div><div class="mcCargo">${m.cargo||''} ${m.data_admissao? '· desde '+fmtDate(m.data_admissao):''}</div></div>
       </div>
-      ${m.perfil_atual ? `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:8px;">${m.perfil_atual ? `<span class="badge" style="background:rgba(76,141,255,.15);color:var(--blue);">🧩 ${m.perfil_atual}</span>` : ''}${m.alinhamento_cultural ? `<span class="badge" style="background:rgba(63,178,127,.12);color:var(--green);text-transform:none;letter-spacing:0;white-space:normal;line-height:1.4;">${m.alinhamento_cultural}</span>` : ''}</div>` : ''}
+      ${(m.perfil_atual || m.temperamento) ? `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:8px;">${m.perfil_atual ? `<span class="badge" style="background:rgba(76,141,255,.15);color:var(--blue);">🧩 ${m.perfil_atual}</span>` : ''}${m.temperamento ? `<span class="badge" style="background:rgba(242,169,59,.15);color:var(--amber);">🎭 ${m.temperamento}</span>` : ''}${m.alinhamento_cultural ? `<span class="badge" style="background:rgba(63,178,127,.12);color:var(--green);text-transform:none;letter-spacing:0;white-space:normal;line-height:1.4;">${m.alinhamento_cultural}</span>` : ''}</div>` : ''}
       <div class="mcObj">${m.objetivo ? m.objetivo : '<span style="color:var(--text-faint)">Sem objetivo definido</span>'}</div>
       ${m.observacoes ? `<div class="mcObj">📌 ${m.observacoes}</div>` : ''}
       ${m.proximo_feedback ? `<div class="mcMeta" style="margin-top:8px;"><span>🗓 Próximo feedback: <span class="mono">${fmtDate(m.proximo_feedback)}</span></span></div>` : ''}
@@ -1614,6 +1615,7 @@ Observações gerais atualizadas: ${m.observacoes || 'não informado'}`;
     insightsIAMembroId = membroId;
     document.getElementById('modalInsightsIATitle').textContent = 'Insights IA — ' + m.nome;
     document.getElementById('outInsightsIAPerfil').textContent = fnData.perfil_sugerido || '—';
+    document.getElementById('outInsightsIATemperamento').textContent = fnData.temperamento_predominante || '—';
     document.getElementById('outInsightsIAAlinhamento').textContent = fnData.alinhamento_cultural || '—';
     document.getElementById('outInsightsIATexto').textContent = fnData.insights || '—';
     openModal('modalInsightsIA');
@@ -1633,6 +1635,7 @@ async function salvarInsightsIA(){
   const m = STATE.equipe.find(x=>x.id===insightsIAMembroId);
   const { error } = await sb.from('fp_gestao_equipe').update({
     perfil_atual: insightsIAGerados.perfil_sugerido || (m? m.perfil_atual : null) || null,
+    temperamento: insightsIAGerados.temperamento_predominante || (m? m.temperamento : null) || null,
     alinhamento_cultural: insightsIAGerados.alinhamento_cultural || (m? m.alinhamento_cultural : null) || null,
     ultimo_insight_texto: insightsIAGerados.insights || null,
     ultimo_insight_data: todayISO()
@@ -1975,9 +1978,10 @@ async function salvarReuniao(){
 
   if(error){ toast('Erro ao salvar reunião: ' + error.message, true); return; }
 
-  if(ehEquipe && (insightsGerados.perfil_sugerido || insightsGerados.alinhamento_cultural)){
+  if(ehEquipe && (insightsGerados.perfil_sugerido || insightsGerados.alinhamento_cultural || insightsGerados.temperamento_predominante)){
     await sb.from('fp_gestao_equipe').update({
       perfil_atual: insightsGerados.perfil_sugerido || null,
+      temperamento: insightsGerados.temperamento_predominante || null,
       alinhamento_cultural: insightsGerados.alinhamento_cultural || null
     }).eq('id', membroId);
   }
