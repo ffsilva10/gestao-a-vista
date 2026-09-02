@@ -4416,12 +4416,12 @@ function barrasPerformanceDestino(registros){
     const alturaFora = Math.round((foraDoPrazo/100)*alturaTotal);
     const alturaNo = alturaTotal - alturaFora;
     return `<div class="pdBarCol">
-      ${foraDoPrazo>0 ? `<div class="pdBarPct" style="color:#0F1F35;">${foraDoPrazo.toFixed(0)}%</div>` : ''}
+      ${foraDoPrazo>0 ? `<div class="pdBarPct" style="color:#FF8A80;">${foraDoPrazo.toFixed(0)}%</div>` : ''}
       <div class="pdBarTrack">
         <div style="height:${alturaNo}px;background:#2D7DD2;display:flex;align-items:flex-start;justify-content:center;padding-top:4px;">
           <span style="font-size:9px;color:#fff;font-weight:700;">${noPrazo.toFixed(0)}%</span>
         </div>
-        ${alturaFora>0 ? `<div style="height:${alturaFora}px;background:#0F1F35;"></div>` : ''}
+        ${alturaFora>0 ? `<div style="height:${alturaFora}px;background:#E85D5D;"></div>` : ''}
       </div>
       <div class="pdBarLbl">${r.uf}</div>
     </div>`;
@@ -4545,14 +4545,14 @@ function graficoPerfDestinoPdfHtml(registros){
     const alturaFora = Math.round((foraDoPrazo/100)*alturaTotal);
     const alturaNo = alturaTotal - alturaFora;
     return `<div style="display:flex;flex-direction:column;align-items:center;width:28px;flex:none;">
-      ${foraDoPrazo>0 ? `<div style="font-size:8px;color:#C0392B;font-weight:700;">${foraDoPrazo.toFixed(0)}%</div>` : ''}
+      ${foraDoPrazo>0 ? `<div style="font-size:8px;color:#FF8A80;font-weight:700;">${foraDoPrazo.toFixed(0)}%</div>` : ''}
       <div style="width:100%;height:${alturaTotal}px;display:flex;flex-direction:column-reverse;border-radius:2px 2px 0 0;overflow:hidden;">
         <div style="height:${alturaNo}px;background:#2D7DD2;display:flex;align-items:flex-start;justify-content:center;padding-top:2px;">
           <span style="font-size:8px;color:#fff;font-weight:700;">${noPrazo.toFixed(0)}</span>
         </div>
-        ${alturaFora>0 ? `<div style="height:${alturaFora}px;background:#0F1F35;"></div>` : ''}
+        ${alturaFora>0 ? `<div style="height:${alturaFora}px;background:#E85D5D;"></div>` : ''}
       </div>
-      <div style="font-size:8px;color:#5c6472;margin-top:4px;">${r.uf}</div>
+      <div style="font-size:8px;color:#c3ceda;margin-top:4px;">${r.uf}</div>
     </div>`;
   }).join('');
   return `<div style="background:#0b0e14;border-radius:10px;padding:14px 12px 8px;overflow-x:auto;">
