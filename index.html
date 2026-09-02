@@ -3457,6 +3457,18 @@ async function gerarResumoSaude(){
   const volumeAnterior = parseMoeda(document.getElementById('sndVolumeAnterior').value);
   const pctEvolucao = (volumeAtual!=null && volumeAnterior) ? (((volumeAtual-volumeAnterior)/volumeAnterior)*100).toFixed(1) : null;
 
+  const mesAnoAnteriorRef2 = mesAnoAnteriorRef(mesRef);
+  const registroAnoAnterior = STATE.resultadosAdama.find(s => s.mes_referencia === mesAnoAnteriorRef2);
+  const contextoAnoAnterior = registroAnoAnterior ? {
+    mes_referencia: mesLabel(mesAnoAnteriorRef2),
+    relato_mes: registroAnoAnterior.relato_mes || null,
+    resumo_ia: registroAnoAnterior.resumo_ia || null,
+    ocorrencias: registroAnoAnterior.ocorrencias || null,
+    devolucoes: registroAnoAnterior.devolucoes || null,
+    regiao_maior_impacto: registroAnoAnterior.regiao_maior_impacto || null,
+    volumes_operacao: registroAnoAnterior.volumes_operacao || null
+  } : null;
+
   const btn = document.getElementById('btnGerarSaude');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Gerando com IA...';
 
@@ -3472,6 +3484,7 @@ async function gerarResumoSaude(){
         devolucoes: document.getElementById('sndDevolucoes').value.trim(),
         volumes_operacao: operacoesPreenchidas(),
         relato_mes: relato,
+        contexto_ano_anterior: contextoAnoAnterior,
         repertorio: repertorioParaIA()
       }
     });
