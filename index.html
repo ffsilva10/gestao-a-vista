@@ -722,7 +722,7 @@
           <button class="btn btn-ghost btn-sm" onclick="novoFechamentoSaude()">🔄 Limpar formulário</button>
         </div>
         <div class="row2">
-          <div class="field"><label>Mês de referência</label><input type="month" id="sndMes" onchange="preencherVolumeAnteriorAuto()"></div>
+          <div class="field"><label>Mês de referência</label><input type="month" id="sndMes" onchange="aoMudarMesReferencia()"></div>
           <div class="field"><label>Região de maior impacto</label><input type="text" id="sndRegiao" placeholder="Ex: Paulínia"></div>
         </div>
         <div class="row2">
@@ -3381,6 +3381,38 @@ function operacoesPreenchidas(){
   }));
 }
 
+function aoMudarMesReferencia(){
+  const carregou = carregarMesExistente();
+  if(!carregou) preencherVolumeAnteriorAuto();
+}
+
+function carregarMesExistente(){
+  const mesRef = document.getElementById('sndMes').value;
+  if(!mesRef) return false;
+  const existente = STATE.resultadosAdama.find(s => s.mes_referencia === mesRef);
+  if(!existente) return false;
+
+  document.getElementById('sndRegiao').value = existente.regiao_maior_impacto || '';
+  document.getElementById('sndVolumeAtual').value = existente.volume_atual != null ? formatarMoedaInput(existente.volume_atual) : '';
+  document.getElementById('sndVolumeAnterior').value = existente.volume_ano_anterior != null ? formatarMoedaInput(existente.volume_ano_anterior) : '';
+  document.getElementById('sndOcorrencias').value = existente.ocorrencias || '';
+  document.getElementById('sndDevolucoes').value = existente.devolucoes || '';
+  document.getElementById('sndRelato').value = existente.relato_mes || '';
+
+  linhasOperacaoSaude = (existente.volumes_operacao && existente.volumes_operacao.length)
+    ? existente.volumes_operacao.map(o => ({
+        operacao: o.operacao,
+        volume: o.volume != null ? String(o.volume) : '',
+        performance: o.performance != null ? String(o.performance) : '',
+        previsto: o.previsto != null ? String(o.previsto) : ''
+      }))
+    : linhasOperacaoSaude;
+  renderLinhasOperacaoSaude();
+  atualizarEvolucaoPreview();
+  toast(`${mesLabel(mesRef)} já tinha dados salvos — carregado pra você completar.`);
+  return true;
+}
+
 function preencherVolumeAnteriorAuto(){
   const mesRef = document.getElementById('sndMes').value;
   if(!mesRef) return;
@@ -3461,6 +3493,12 @@ async function gerarResumoSaude(){
   }
 }
 
+async function upsertSaude(payload){
+  const existente = STATE.resultadosAdama.find(s => s.mes_referencia === payload.mes_referencia);
+  if(existente){ return await sb.from('fp_gestao_resultados_adama').update(payload).eq('id', existente.id); }
+  return await sb.from('fp_gestao_resultados_adama').insert(payload);
+}
+
 async function salvarSaude(){
   if(!resumoSaudeGerado){ toast('Gere o resumo primeiro.', true); return; }
   const payload = {
@@ -3475,7 +3513,7 @@ async function salvarSaude(){
     resumo_ia: resumoSaudeGerado.resumo || '',
     insights_ia: JSON.stringify(resumoSaudeGerado.insights || [])
   };
-  const { error } = await sb.from('fp_gestao_resultados_adama').insert(payload);
+  const { error } = await upsertSaude(payload);
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   await carregarTudo();
   novoFechamentoSaude();
@@ -3486,6 +3524,7 @@ async function salvarSaude(){
 async function salvarSaudeSemIA(){
   const mesRef = document.getElementById('sndMes').value;
   if(!mesRef){ toast('Selecione o mês de referência.', true); return; }
+  const existente = STATE.resultadosAdama.find(s => s.mes_referencia === mesRef);
   const payload = {
     mes_referencia: mesRef,
     volume_atual: parseMoeda(document.getElementById('sndVolumeAtual').value),
@@ -3495,10 +3534,10 @@ async function salvarSaudeSemIA(){
     devolucoes: document.getElementById('sndDevolucoes').value.trim(),
     volumes_operacao: operacoesPreenchidas(),
     relato_mes: document.getElementById('sndRelato').value.trim(),
-    resumo_ia: null,
-    insights_ia: null
+    resumo_ia: existente ? existente.resumo_ia : null,
+    insights_ia: existente ? existente.insights_ia : null
   };
-  const { error } = await sb.from('fp_gestao_resultados_adama').insert(payload);
+  const { error } = await upsertSaude(payload);
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   await carregarTudo();
   novoFechamentoSaude();
