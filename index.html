@@ -4357,13 +4357,29 @@ function iniciaisNome(nome){
   return nome.split(' ').filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
 }
 
-function orgCardHtml(nome, cargo, nivel){
+function orgCardHtml(nome, cargo, nivel, editavelId){
   const t = ORG_CORES[nivel];
+  const nomeHtml = editavelId
+    ? `<input type="text" value="${nome}" onchange="salvarNomeCargoOrg('${editavelId}','nome',this.value)" class="orgNome" style="background:transparent;border:none;text-align:center;width:100%;">`
+    : `<div class="orgNome">${nome}</div>`;
+  const cargoHtml = editavelId
+    ? `<input type="text" value="${cargo}" onchange="salvarNomeCargoOrg('${editavelId}','cargo',this.value)" class="orgCargo" style="background:transparent;border:none;text-align:center;width:100%;">`
+    : `<div class="orgCargo">${cargo}</div>`;
   return `<div class="orgCard" style="--org-cor:${t.cor};--org-cor-soft:${t.soft};">
     <div class="orgAvatar">${iniciaisNome(nome)}</div>
-    <div class="orgNome">${nome}</div>
-    <div class="orgCargo">${cargo}</div>
+    ${nomeHtml}
+    ${cargoHtml}
   </div>`;
+}
+
+async function salvarNomeCargoOrg(id, campo, valor){
+  valor = valor.trim();
+  if(!valor){ toast('O campo não pode ficar vazio.', true); renderOrganograma(); return; }
+  const { error } = await sb.from('fp_gestao_equipe').update({ [campo]: valor }).eq('id', id);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  await carregarTudo();
+  renderOrganograma();
+  toast('Atualizado.');
 }
 
 function orgConnector(nivelDe, nivelPara){
@@ -4386,7 +4402,7 @@ function renderOrganograma(){
   const filhos = STATE.equipe.map(m => `
     <div class="orgChildWrap">
       <div class="orgStem" style="background:${ORG_CORES.equipe.cor};"></div>
-      ${orgCardHtml(m.nome, m.cargo || 'Cargo não informado', 'equipe')}
+      ${orgCardHtml(m.nome, m.cargo || 'Cargo não informado', 'equipe', m.id)}
     </div>`).join('') || `<div class="orgChildWrap"><div class="orgStem" style="background:${ORG_CORES.equipe.cor};"></div><div class="orgCard" style="color:var(--text-faint);--org-cor:${ORG_CORES.equipe.cor};--org-cor-soft:${ORG_CORES.equipe.soft};">Cadastre colaboradores na aba Equipe</div></div>`;
 
   wrap.innerHTML = `
