@@ -255,14 +255,8 @@
   .repRankTable td{padding:7px 8px;border-bottom:1px solid #eef0f2;}
   @media print{
     body *{visibility:hidden;}
-    #relatorioPreview, #relatorioPreview *, #pdfAtasPreview, #pdfAtasPreview *, #pdfTalentoPreview, #pdfTalentoPreview *, #pdfEquipePreview, #pdfEquipePreview *, #pdfProjetosPreview, #pdfProjetosPreview *, #pdfSaudePreview, #pdfSaudePreview *, #pdfQuarterPreview, #pdfQuarterPreview *{visibility:visible;}
-    #relatorioPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
-    #pdfAtasPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
-    #pdfTalentoPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
-    #pdfEquipePreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
-    #pdfProjetosPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
-    #pdfSaudePreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
-    #pdfQuarterPreview{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
+    .pdfPrintAtivo, .pdfPrintAtivo *{visibility:visible;}
+    .pdfPrintAtivo{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
     .reportPage{box-shadow:none;border-radius:0;page-break-after:always;max-width:100%;}
     .reportPage:last-child{page-break-after:auto;}
   }
@@ -325,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V10</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V11</div>
     </div>
   </nav>
 
@@ -1258,6 +1252,12 @@ function goView(v){
 }
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+
+function ativarPreviewImpressao(preview){
+  document.querySelectorAll('.pdfPrintAtivo').forEach(el => el.classList.remove('pdfPrintAtivo'));
+  preview.classList.add('pdfPrintAtivo');
+  preview.style.display = 'block';
+}
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 function repertorioParaIA(){
   if(!STATE.usarRepertorioIA) return [];
@@ -1647,7 +1647,7 @@ function gerarPdfEquipe(alvo){
     </div>
     ${cards}
   </div>`;
-  preview.style.display = 'block';
+  ativarPreviewImpressao(preview);
   setTimeout(()=> window.print(), 200);
 }
 
@@ -1938,7 +1938,7 @@ function gerarPdfAtas(){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">${cards}</div>
   </div>`;
-  preview.style.display = 'block';
+  ativarPreviewImpressao(preview);
 
   setTimeout(()=> window.print(), 200);
 }
@@ -2281,7 +2281,7 @@ function gerarPdfProjetosSelecionados(){
     </div>
     ${linhas}
   </div>`;
-  preview.style.display = 'block';
+  ativarPreviewImpressao(preview);
   setTimeout(()=> window.print(), 200);
 }
 
@@ -2718,7 +2718,7 @@ function gerarRelatorio(){
     preview.innerHTML = capa + (incluirEu ? blocoRelatorioFabio(ini, fim) : '') + ranking.map(r=>blocoRelatorioMembro(r.m, ini, fim)).join('');
   }
 
-  preview.style.display = 'block';
+  ativarPreviewImpressao(preview);
   document.getElementById('btnImprimir').style.display = 'block';
 }
 
@@ -3042,7 +3042,7 @@ function gerarPdfTalento(){
   }).join('');
 
   preview.innerHTML = capa + paginasIndividuais;
-  preview.style.display = 'block';
+  ativarPreviewImpressao(preview);
   setTimeout(()=> window.print(), 200);
 }
 
@@ -3669,6 +3669,13 @@ function mesAnoAnteriorRef(mesRef){
   return `${parseInt(ano)-1}-${mes}`;
 }
 
+function mesAnteriorRef(mesRef){
+  let [ano, mes] = mesRef.split('-').map(Number);
+  mes -= 1;
+  if(mes === 0){ mes = 12; ano -= 1; }
+  return `${ano}-${String(mes).padStart(2,'0')}`;
+}
+
 function pctOperacoes(s){
   const anterior = STATE.resultadosAdama.find(x=>x.mes_referencia === mesAnoAnteriorRef(s.mes_referencia));
   if(!anterior) return null;
@@ -3898,6 +3905,12 @@ async function excluirSaude(id){
 
 function corPerformance(v){ return v>=98 ? '#1D9E75' : v>=95 ? '#E67E22' : '#C0392B'; }
 
+function linhasFormatadasPdf(texto){
+  if(!texto || !texto.trim()) return '<p style="font-size:12px;color:#8b93a1;margin:0;">Nenhum registro.</p>';
+  return texto.split('\n').map(l=>l.trim()).filter(Boolean)
+    .map(l=>`<p style="font-size:12px;color:#2c3948;line-height:1.6;margin:0 0 7px;">${l}</p>`).join('');
+}
+
 let projetosSelecionadosSaude = [];
 
 function renderSelecaoProjetosSaude(){
@@ -3992,18 +4005,19 @@ function gerarPdfSaude(id){
                 <span style="font-size:11px;color:#5c6472;">Conclusão: ${p.data_entrega? fmtDate(p.data_entrega) : '—'}</span>
               </div>
               ${p.tema ? `<div style="font-size:11px;color:#8b93a1;font-style:italic;margin-top:1px;">${p.tema}</div>` : ''}
-              ${p.resumo_diretoria ? `<div style="font-size:12px;color:#2c3948;margin-top:3px;">${p.resumo_diretoria}</div>` : '<div style="font-size:11.5px;color:#c0392b;margin-top:3px;">⚠️ Sem resumo pra diretoria cadastrado</div>'}
+              ${p.resumo_diretoria ? `<div style="margin-top:3px;">${linhasFormatadasPdf(p.resumo_diretoria)}</div>` : '<div style="font-size:11.5px;color:#c0392b;margin-top:3px;">⚠️ Sem resumo pra diretoria cadastrado</div>'}
             </div>
           </div>`).join('')}
       </div>`;
   }
 
-  const registroPerfDestino = STATE.performanceDestino.find(p => p.mes_referencia === s.mes_referencia);
+  const mesRefPerfDestino = mesAnteriorRef(s.mes_referencia);
+  const registroPerfDestino = STATE.performanceDestino.find(p => p.mes_referencia === mesRefPerfDestino);
   let secaoPerfDestino = '';
   if(registroPerfDestino && registroPerfDestino.destinos && registroPerfDestino.destinos.length){
     secaoPerfDestino = `
       <div style="margin-bottom:22px;">
-        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #4C8DFF;padding-bottom:6px;margin-bottom:12px;">Performance por Destino (s/ Reason Code)</div>
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #4C8DFF;padding-bottom:6px;margin-bottom:12px;">Performance por Destino (s/ Reason Code) — ${mesLabel(mesRefPerfDestino)}, mês fechado</div>
         ${graficoPerfDestinoPdfHtml(registroPerfDestino.destinos)}
       </div>`;
   }
@@ -4035,8 +4049,8 @@ function gerarPdfSaude(id){
           <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#2D7DD2;font-weight:700;">Volume Total</div>
           <div style="font-family:'Barlow Condensed';font-size:30px;font-weight:700;color:#0F1F35;margin-top:2px;">${s.volume_atual != null ? s.volume_atual : '—'}</div>
         </div>
-        ${pctEvolucao!=null ? `<div style="background:${pctEvolucao>=0?'#f1faf6':'#fbeeee'};border-radius:10px;padding:14px 16px;">
-          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${pctEvolucao>=0?'#1D9E75':'#C0392B'};font-weight:700;">Evolução vs Ano Anterior</div>
+        ${pctEvolucao!=null ? `<div style="background:${pctEvolucao>=0?'#f1faf6':'#fbeeee'};border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${pctEvolucao>=0?'#1D9E75':'#C0392B'};font-weight:700;">Evolução Volumetria vs Ano Anterior</div>
           <div style="font-family:'Barlow Condensed';font-size:30px;font-weight:700;color:${pctEvolucao>=0?'#1D9E75':'#C0392B'};margin-top:2px;">${pctEvolucao>0?'+':''}${pctEvolucao.toFixed(1)}%</div>
         </div>` : ''}
         <div style="background:#f7f0fa;border-radius:10px;padding:14px 16px;">
@@ -4066,12 +4080,20 @@ function gerarPdfSaude(id){
 
       <div>
         <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #C0392B;padding-bottom:6px;margin-bottom:12px;">Ocorrências e Devoluções</div>
-        <div style="font-size:12.5px;color:#2c3948;padding:4px 0;">Ocorrências: <b>${s.ocorrencias || '—'}</b></div>
-        <div style="font-size:12.5px;color:#2c3948;padding:4px 0;">Devoluções: <b>${s.devolucoes || '—'}</b></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="background:#fbeeee;border-left:4px solid #C0392B;border-radius:6px;padding:14px 16px;">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#C0392B;font-weight:700;margin-bottom:8px;">⚠️ Ocorrências</div>
+            ${linhasFormatadasPdf(s.ocorrencias)}
+          </div>
+          <div style="background:#fff4e8;border-left:4px solid #E67E22;border-radius:6px;padding:14px 16px;">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#E67E22;font-weight:700;margin-bottom:8px;">↩️ Devoluções</div>
+            ${linhasFormatadasPdf(s.devolucoes)}
+          </div>
+        </div>
       </div>
     </div>
   </div>`;
-  preview.style.display = 'block';
+  ativarPreviewImpressao(preview);
   setTimeout(()=> window.print(), 200);
 }
 
@@ -4374,7 +4396,7 @@ function gerarPdfQuarter(id){
       ${insightsInterno.map(i=>`<div class="repItem">${i}</div>`).join('') || '<div class="repEmpty">—</div>'}
     </div>
   </div>`;
-  preview.style.display = 'block';
+  ativarPreviewImpressao(preview);
   setTimeout(()=> window.print(), 200);
 }
 
