@@ -1331,6 +1331,7 @@ async function carregarTudo(){
   STATE.pontuacoes = pt.data || [];
   STATE.cultura = cu.data ? cu.data.texto : '';
   STATE.usarRepertorioIA = cu.data && cu.data.usar_repertorio_ia != null ? cu.data.usar_repertorio_ia : true;
+  STATE.orgLabelEquipe = (cu.data && cu.data.organograma_label_equipe) || 'Equipe';
   STATE.pilares = pl.data || [];
   STATE.marcos = mc.data || [];
   STATE.projetos = pj.data || [];
@@ -4369,6 +4370,17 @@ function orgConnector(nivelDe, nivelPara){
   return `<div class="orgConnectorV" style="background:linear-gradient(to bottom, ${ORG_CORES[nivelDe].cor}, ${ORG_CORES[nivelPara].cor});"></div>`;
 }
 
+async function salvarLabelEquipe(valor){
+  const texto = valor.trim() || 'Equipe';
+  STATE.orgLabelEquipe = texto;
+  const { data: existente } = await sb.from('fp_gestao_cultura').select('id').maybeSingle();
+  let error;
+  if(existente){ ({error} = await sb.from('fp_gestao_cultura').update({ organograma_label_equipe: texto }).eq('id', existente.id)); }
+  else { ({error} = await sb.from('fp_gestao_cultura').insert({ organograma_label_equipe: texto })); }
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  toast('Nome atualizado.');
+}
+
 function renderOrganograma(){
   const wrap = document.getElementById('organogramaWrap');
   const filhos = STATE.equipe.map(m => `
@@ -4388,7 +4400,8 @@ function renderOrganograma(){
     <div class="orgTierLabel" style="color:${ORG_CORES.coordenacao.cor};">${ORG_CORES.coordenacao.label}</div>
     <div class="orgTier">${orgCardHtml('Eu (Fábio)', 'Coordenador 4PL', 'coordenacao')}</div>
     ${orgConnector('coordenacao','equipe')}
-    <div class="orgTierLabel" style="color:${ORG_CORES.equipe.cor};">${ORG_CORES.equipe.label}</div>
+    <input type="text" id="orgLabelEquipeInput" value="${STATE.orgLabelEquipe || 'Equipe'}" onchange="salvarLabelEquipe(this.value)"
+      style="display:block;margin:0 auto 10px;background:transparent;border:none;border-bottom:1px dashed ${ORG_CORES.equipe.cor};color:${ORG_CORES.equipe.cor};font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;text-align:center;padding:2px 4px;width:160px;">
     <div class="orgChildrenRow">${filhos}</div>
   </div>`;
 }
@@ -4501,12 +4514,12 @@ document.addEventListener('input', (e)=>{
   if(e.target && e.target.closest && e.target.closest('#pdDestinosLista')) atualizarGraficosPerfDestino();
 });
 
-function carregarPerfDestinoMes(){
+function carregarPerfDestinoMes(silencioso){
   const mesRef = document.getElementById('pdMes').value;
   const existente = STATE.performanceDestino.find(p => p.mes_referencia === mesRef);
   if(existente && existente.destinos){
     linhasDestino = existente.destinos.map(d => ({ uf: d.uf, performance: String(d.performance) }));
-    toast(`${mesLabel(mesRef)} já tinha dados salvos — carregado.`);
+    if(!silencioso) toast(`${mesLabel(mesRef)} já tinha dados salvos — carregado.`);
   } else {
     linhasDestino = [];
   }
@@ -4526,9 +4539,9 @@ async function salvarPerfDestino(){
     : await sb.from('fp_gestao_performance_destino').insert(payload);
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   await carregarTudo();
-  novoPerfDestinoMes();
+  carregarPerfDestinoMes(true);
   renderHistoricoPerfDestino();
-  toast(`${mesLabel(mesRef)} salvo.`);
+  toast(`${mesLabel(mesRef)} salvo — confira acima e no histórico abaixo.`);
 }
 
 function renderHistoricoPerfDestino(){
