@@ -878,6 +878,12 @@
       </div>
 
       <div class="panel">
+        <h3>Evolução por Quarter</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Performance geral consolidada, ano a ano, por trimestre</p>
+        <div id="pdEvolucaoQuarter"></div>
+      </div>
+
+      <div class="panel">
         <h3>Histórico</h3>
         <div id="historicoPerfDestino" style="margin-top:10px;"></div>
       </div>
@@ -4432,6 +4438,7 @@ function renderPerfDestinoView(){
     perfDestinoViewInicializada = true;
   }
   renderHistoricoPerfDestino();
+  renderEvolucaoQuarterPerfDestino();
 }
 
 function novoPerfDestinoMes(){
@@ -4557,7 +4564,53 @@ async function salvarPerfDestino(){
   await carregarTudo();
   carregarPerfDestinoMes(true);
   renderHistoricoPerfDestino();
+  renderEvolucaoQuarterPerfDestino();
   toast(`${mesLabel(mesRef)} salvo — confira acima e no histórico abaixo.`);
+}
+
+function renderEvolucaoQuarterPerfDestino(){
+  const wrap = document.getElementById('pdEvolucaoQuarter');
+  if(!wrap) return;
+  const anosSet = new Set();
+  STATE.performanceDestino.forEach(p => anosSet.add(p.mes_referencia.split('-')[0]));
+  const anos = Array.from(anosSet).sort();
+  if(anos.length===0){ wrap.innerHTML = emptyState('Cadastre meses em pelo menos um trimestre pra ver a evolução aqui.'); return; }
+
+  const grupos = [];
+  for(let q=1; q<=4; q++){
+    const barrasAno = [];
+    anos.forEach(ano => {
+      const registros = performanceDestinoParaQuarter(parseInt(ano), q);
+      if(registros.length){
+        barrasAno.push({ ano, overall: overallPerformance(registros) });
+      }
+    });
+    if(barrasAno.length) grupos.push({ q, barrasAno });
+  }
+  if(grupos.length===0){ wrap.innerHTML = emptyState('Cadastre meses em pelo menos um trimestre pra ver a evolução aqui.'); return; }
+
+  wrap.innerHTML = `<div class="pdChartBox">
+    <div style="display:flex;align-items:flex-end;gap:22px;overflow-x:auto;padding-bottom:4px;">
+      ${grupos.map(g => `
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="display:flex;align-items:flex-end;gap:6px;height:140px;">
+            ${g.barrasAno.map(b => {
+              const altura = Math.max(10, Math.round((b.overall/100)*130));
+              const cor = corPerfDestino(b.overall);
+              return `<div style="display:flex;flex-direction:column;align-items:center;width:52px;">
+                <div style="width:100%;height:${altura}px;background:${cor};border-radius:3px 3px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:6px;">
+                  <span style="font-size:12px;color:#fff;font-weight:700;">${b.overall.toFixed(0)}%</span>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            ${g.barrasAno.map(b => `<div style="width:52px;text-align:center;font-size:10px;color:#c3ceda;">${b.ano}</div>`).join('')}
+          </div>
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dotted #3a4150;width:100%;text-align:center;font-size:11px;color:#8fa3c2;font-weight:700;">Q${g.q}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
 }
 
 function renderHistoricoPerfDestino(){
