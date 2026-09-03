@@ -254,6 +254,7 @@
   .repRankTable th{text-align:left;font-size:10px;text-transform:uppercase;color:#5c6472;border-bottom:2px solid #0F1F35;padding:0 8px 6px;}
   .repRankTable td{padding:7px 8px;border-bottom:1px solid #eef0f2;}
   @media print{
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}
     body *{visibility:hidden;}
     .pdfPrintAtivo, .pdfPrintAtivo *{visibility:visible;}
     .pdfPrintAtivo{display:block !important;position:absolute;left:0;top:0;width:100%;margin:0;}
@@ -319,7 +320,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V11</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V12</div>
     </div>
   </nav>
 
