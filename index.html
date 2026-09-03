@@ -325,6 +325,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">v2026.09.03-02</div>
     </div>
   </nav>
 
@@ -4518,7 +4519,7 @@ function atualizarGraficosPerfDestino(){
   const registrosAtual = destinosPreenchidos();
   const overall = overallPerformance(registrosAtual);
   document.getElementById('pdOverallPreview').innerHTML = overall!=null ? `Performance geral do mês: <b style="color:${corPerfDestino(overall)}">${overall.toFixed(1)}%</b>` : '';
-  document.getElementById('pdGraficoAtual').innerHTML = graficoPerfDestinoHtml(registrosAtual, mesRef? mesLabel(mesRef).toUpperCase() : 'MÊS ATUAL', '#0F1F35');
+  document.getElementById('pdGraficoAtual').innerHTML = graficoPerfDestinoHtml(registrosAtual, mesRef? mesLabel(mesRef).toUpperCase() : 'MÊS ATUAL', '#7FA8FF');
 
   if(mesRef){
     const mesAnterior = mesAnoAnteriorRef(mesRef);
@@ -4526,7 +4527,7 @@ function atualizarGraficosPerfDestino(){
     const tituloAnt = document.getElementById('pdGraficoTituloAnterior');
     if(registroAnterior && registroAnterior.destinos && registroAnterior.destinos.length){
       tituloAnt.style.display = 'block';
-      document.getElementById('pdGraficoAnterior').innerHTML = graficoPerfDestinoHtml(registroAnterior.destinos, mesLabel(mesAnterior).toUpperCase(), '#6C3483');
+      document.getElementById('pdGraficoAnterior').innerHTML = graficoPerfDestinoHtml(registroAnterior.destinos, mesLabel(mesAnterior).toUpperCase(), '#C9A3FF');
     } else {
       tituloAnt.style.display = 'none';
       document.getElementById('pdGraficoAnterior').innerHTML = '';
@@ -4636,7 +4637,7 @@ function renderHistoricoPerfDestino(){
               <span class="mono" style="color:${overall!=null?corPerfDestino(overall):'var(--text-faint)'};font-weight:700;">${overall!=null?overall.toFixed(1)+'%':'—'}</span>
             </summary>
             <div style="padding-bottom:14px;">
-              ${graficoPerfDestinoHtml(p.destinos||[], mesLabel(p.mes_referencia).toUpperCase(), '#0F1F35')}
+              ${graficoPerfDestinoHtml(p.destinos||[], mesLabel(p.mes_referencia).toUpperCase(), '#7FA8FF')}
               <button class="btn btn-danger btn-sm" style="margin-top:10px;" onclick="excluirPerfDestino('${p.id}')">🗑️ Excluir</button>
             </div>
           </details>`;
