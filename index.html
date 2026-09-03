@@ -779,6 +779,12 @@
       </div>
 
       <div class="panel">
+        <h3>📤 Enviados à ADAMA</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Meses já enviados ao cliente — clique em PDF pra regenerar o mesmo material a qualquer momento</p>
+        <div id="enviadosAdamaLista" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="panel">
         <h3>Histórico de fechamentos</h3>
         <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Agrupado por ano — clique pra abrir/fechar cada ano</p>
         <div id="historicoSaude" style="margin-top:10px;"></div>
@@ -3380,6 +3386,7 @@ function renderSaudeView(){
   }
   renderHistoricoSaude();
   renderSelecaoProjetosSaude();
+  renderEnviadosAdama();
 }
 
 function novoFechamentoSaude(){
@@ -3694,14 +3701,45 @@ function cardFechamentoSaudeHtml(s){
       ${tabelaComparativa}
       ${s.resumo_ia ? `<div class="insightBox" style="margin-top:10px;"><h4>Resumo executivo</h4>${s.resumo_ia}</div>` : ''}
       ${insights.length ? `<div class="insightBox" style="margin-top:8px;"><h4>Insights</h4>${insights.map(i=>`<div class="repItem" style="border:none;">• ${i}</div>`).join('')}</div>` : ''}
+      ${s.enviado_adama ? `<div style="margin-top:10px;font-size:12px;color:var(--green);">✅ Enviado à ADAMA em ${fmtDate(s.enviado_adama_data)}</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="copiarSaude('${s.id}')">📋 Copiar</button>
         <button class="btn btn-ghost btn-sm" onclick="gerarPdfSaude('${s.id}')">🖨️ PDF</button>
         <button class="btn btn-ghost btn-sm" onclick="abrirEdicaoSaude('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="excluirSaude('${s.id}')">🗑️</button>
       </div>
+      <button class="btn ${s.enviado_adama?'btn-ghost':'btn-primary'} btn-sm" style="width:100%;margin-top:8px;" onclick="toggleEnviadoAdama('${s.id}', ${!s.enviado_adama})">${s.enviado_adama ? '↩️ Desmarcar como enviado' : '📤 Marcar como enviado à ADAMA'}</button>
     </div>
   </details>`;
+}
+
+async function toggleEnviadoAdama(id, marcar){
+  const payload = marcar
+    ? { enviado_adama: true, enviado_adama_data: todayISO() }
+    : { enviado_adama: false, enviado_adama_data: null };
+  const { error } = await sb.from('fp_gestao_resultados_adama').update(payload).eq('id', id);
+  if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  await carregarTudo();
+  renderHistoricoSaude();
+  renderEnviadosAdama();
+  toast(marcar ? 'Marcado como enviado à ADAMA.' : 'Desmarcado.');
+}
+
+function renderEnviadosAdama(){
+  const wrap = document.getElementById('enviadosAdamaLista');
+  if(!wrap) return;
+  const enviados = STATE.resultadosAdama.filter(s => s.enviado_adama).sort((a,b)=>b.mes_referencia.localeCompare(a.mes_referencia));
+  if(enviados.length===0){ wrap.innerHTML = emptyState('Nenhum mês marcado como enviado ainda.'); return; }
+  wrap.innerHTML = enviados.map(s => `
+    <div class="panel" style="margin-top:0;margin-bottom:8px;background:var(--panel2);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <strong>${mesLabel(s.mes_referencia)}</strong>
+          <div style="font-size:11px;color:var(--green);margin-top:2px;">✅ Enviado em ${fmtDate(s.enviado_adama_data)}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="gerarPdfSaude('${s.id}')">🖨️ Gerar PDF</button>
+      </div>
+    </div>`).join('');
 }
 
 function renderHistoricoSaude(){
