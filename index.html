@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V19</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V20</div>
     </div>
   </nav>
 
@@ -5018,11 +5018,11 @@ function atualizarKpisETabelaCronograma(){
     <div class="repKpi"><div class="n" style="font-size:16px;">${dataCarregamentoFmt}</div><div class="l">Data de Carregamento Programada</div></div>
     ${comRealizado.length ? `<div class="repKpi"><div class="n">${realizadoTotal.toLocaleString('pt-BR')}</div><div class="l">Volume Realizado (KG)</div></div>
     <div class="repKpi"><div class="n" style="color:${diferencaTotal>=0?'var(--green)':'var(--red)'};">${diferencaTotal>0?'+':''}${diferencaTotal.toLocaleString('pt-BR')}</div><div class="l">${diferencaTotal>=0?'Superou o planejado':'Falta pra bater a semana'} (KG)</div></div>` : ''}
-    ${acumuladoTotal>0 ? `<div class="repKpi" style="background:rgba(242,169,59,.12);border:1px solid rgba(242,169,59,.35);"><div class="n" style="color:var(--amber);">⚠️ ${acumuladoTotal.toLocaleString('pt-BR')}</div><div class="l">Volume Acumulado (Semanas Anteriores)</div></div>` : ''}
+    ${acumuladoTotal>0 ? `<div class="repKpi" style="background:rgba(242,169,59,.12);border:1px solid rgba(242,169,59,.35);"><div class="n" style="color:var(--amber);">⚠️ ${acumuladoTotal.toLocaleString('pt-BR')} kg</div><div class="l">Volume Acumulado (Semanas Anteriores)</div></div>` : ''}
   </div>`;
 
   tabelaEl.innerHTML = `<div class="tableWrap"><table>
-    <tr><th>Armazém/UF</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Acumulado ant.</th><th>${capacidadeLabel}</th><th>Distância</th><th>Chegada Est.</th><th>Margem/Risco</th><th>P/ próx. semana</th></tr>
+    <tr><th>Armazém/UF</th><th>Planejado (kg)</th><th>Realizado (kg)</th><th>Diferença (kg)</th><th>Acumulado ant. (kg)</th><th>${capacidadeLabel}</th><th>Distância</th><th>Chegada Est.</th><th>Margem/Risco</th><th>P/ próx. semana</th></tr>
     ${destinos.map(d=>{
       const cor = corRiscoCronograma(d.margemDias);
       const chegadaFmt = d.dataChegada ? fmtDate(d.dataChegada.toISOString().slice(0,10)) : '—';
@@ -5034,7 +5034,7 @@ function atualizarKpisETabelaCronograma(){
         <td class="mono">${d.volume.toLocaleString('pt-BR')}</td>
         <td class="mono" style="color:var(--text-dim);">${d.realizado!=null ? d.realizado.toLocaleString('pt-BR') : '—'}</td>
         <td class="mono" style="color:${difCor};font-weight:700;">${difTxt}</td>
-        <td>${d.acumulado>0 ? `<span class="badge" style="background:rgba(242,169,59,.15);color:var(--amber);">↩️ ${d.acumulado.toLocaleString('pt-BR')}</span>` : '<span class="mono" style="color:var(--text-faint);">—</span>'}</td>
+        <td>${d.acumulado>0 ? `<span class="badge" style="background:rgba(242,169,59,.15);color:var(--amber);">↩️ ${d.acumulado.toLocaleString('pt-BR')} kg</span>` : '<span class="mono" style="color:var(--text-faint);">—</span>'}</td>
         <td class="mono">${d.caminhoes}</td>
         <td class="mono" style="color:var(--text-dim);">${d.distancia} km</td>
         <td class="mono">${chegadaFmt}</td>
@@ -5083,7 +5083,7 @@ function renderHistoricoCronograma(){
       </summary>
       <div style="padding-bottom:14px;">
         <div class="tableWrap"><table>
-          <tr><th>Armazém/UF</th><th>Planejado</th><th>Realizado</th><th>Distância</th><th>P/ próx. semana</th></tr>
+          <tr><th>Armazém/UF</th><th>Planejado (kg)</th><th>Realizado (kg)</th><th>Distância</th><th>P/ próx. semana</th></tr>
           ${(c.destinos||[]).map(d=>`<tr><td>${d.uf}</td><td class="mono">${(d.volume||0).toLocaleString('pt-BR')}</td><td class="mono" style="color:var(--text-dim);">${d.realizado!=null?d.realizado.toLocaleString('pt-BR'):'—'}</td><td class="mono" style="color:var(--text-dim);">${d.distancia||'—'} km</td><td>${d.direcionado?'<span class="badge" style="background:rgba(232,93,93,.15);color:var(--red);">Sim</span>':'<span style="color:var(--text-faint);">Não</span>'}</td></tr>`).join('')}
         </table></div>
         <div style="display:flex;gap:8px;margin-top:10px;">
@@ -5120,7 +5120,7 @@ function gerarPdfCronograma(id){
     const margemTxt = d.margemDias!=null ? `${d.margemDias>=0?'+':''}${d.margemDias}d` : '—';
     const difTxt = d.diferenca!=null ? `${d.diferenca>0?'+':''}${d.diferenca.toLocaleString('pt-BR')}` : '—';
     const difCorHex = d.diferenca==null ? '#8b93a1' : d.diferenca>=0 ? '#1D9E75' : '#C0392B';
-    const acumuladoHtml = d.acumulado>0 ? `<span style="background:#fff4e0;color:#B7791F;padding:2px 8px;border-radius:10px;font-weight:700;">↩️ ${d.acumulado.toLocaleString('pt-BR')}</span>` : '—';
+    const acumuladoHtml = d.acumulado>0 ? `<span style="background:#fff4e0;color:#B7791F;padding:2px 8px;border-radius:10px;font-weight:700;">↩️ ${d.acumulado.toLocaleString('pt-BR')} kg</span>` : '—';
     return `<tr style="border-bottom:1px solid #eef0f2;">
       <td style="padding:6px 4px;color:#1c2733;font-weight:600;">${d.uf}</td>
       <td style="text-align:right;padding:6px 4px;color:#2c3948;">${d.volume.toLocaleString('pt-BR')}</td>
@@ -5177,8 +5177,8 @@ function gerarPdfCronograma(id){
           <th style="text-align:left;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Armazém/UF</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Planejado (kg)</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Realizado (kg)</th>
-          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Diferença</th>
-          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Acum. ant.</th>
+          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Diferença (kg)</th>
+          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Acum. ant. (kg)</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Caminhões</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Distância</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Chegada Est.</th>
