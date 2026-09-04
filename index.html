@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V17</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V18</div>
     </div>
   </nav>
 
@@ -846,13 +846,19 @@
 
       <div class="panel">
         <h3>Semana de referência</h3>
+        <div class="field">
+          <label>Escolher semana já salva pra analisar</label>
+          <select id="csSelecionarSemana" onchange="carregarSemanaCronograma(this.value)">
+            <option value="">— Nova semana —</option>
+          </select>
+        </div>
         <div class="row2">
           <div class="field"><label>Rótulo da semana</label><input type="text" id="csSemanaLabel" placeholder="Ex: Semana 36"></div>
           <div class="field"><label>Início</label><input type="date" id="csSemanaInicio"></div>
         </div>
         <div class="field" style="max-width:220px;"><label>Fim</label><input type="date" id="csSemanaFim"></div>
         <div class="field">
-          <label>Armazém / UF — volume da semana (KG)</label>
+          <label>Armazém / UF — volume planejado x realizado (KG)</label>
           <div id="csDestinosLista"></div>
           <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="adicionarLinhaCronograma()">+ Adicionar armazém</button>
         </div>
@@ -4831,7 +4837,33 @@ function renderCronogramaView(){
     novaSemanaCronograma();
     cronogramaViewInicializada = true;
   }
+  renderSeletorSemanaCronograma();
   renderHistoricoCronograma();
+}
+
+function renderSeletorSemanaCronograma(){
+  const sel = document.getElementById('csSelecionarSemana');
+  const atual = sel.value;
+  sel.innerHTML = `<option value="">— Nova semana —</option>` +
+    STATE.cronogramaSemanas.map(c=>`<option value="${c.id}">${c.semana_label} (${fmtDate(c.semana_inicio)})</option>`).join('');
+  sel.value = STATE.cronogramaSemanas.some(c=>c.id===atual) ? atual : '';
+}
+
+function carregarSemanaCronograma(id){
+  if(!id){ novaSemanaCronograma(); return; }
+  const c = STATE.cronogramaSemanas.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('csSemanaLabel').value = c.semana_label;
+  document.getElementById('csSemanaInicio').value = c.semana_inicio;
+  document.getElementById('csSemanaFim').value = c.semana_fim || '';
+  linhasCronograma = (c.destinos||[]).map(d => ({
+    uf: d.uf,
+    volume: d.volume!=null ? String(d.volume) : '',
+    distancia: d.distancia!=null ? String(d.distancia) : '',
+    realizado: d.realizado!=null ? String(d.realizado) : ''
+  }));
+  renderLinhasCronograma();
+  toast(`${c.semana_label} carregada.`);
 }
 
 async function salvarConfigCronograma(){
@@ -4860,25 +4892,27 @@ function novaSemanaCronograma(){
   document.getElementById('csSemanaLabel').value = '';
   document.getElementById('csSemanaInicio').value = '';
   document.getElementById('csSemanaFim').value = '';
-  linhasCronograma = Object.keys(CRONOGRAMA_DISTANCIAS_PADRAO).map(uf => ({ uf, volume: '', distancia: String(CRONOGRAMA_DISTANCIAS_PADRAO[uf]) }));
+  document.getElementById('csSelecionarSemana').value = '';
+  linhasCronograma = Object.keys(CRONOGRAMA_DISTANCIAS_PADRAO).map(uf => ({ uf, volume: '', distancia: String(CRONOGRAMA_DISTANCIAS_PADRAO[uf]), realizado: '' }));
   renderLinhasCronograma();
 }
 
 function renderLinhasCronograma(){
   const wrap = document.getElementById('csDestinosLista');
-  wrap.innerHTML = `<div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 32px;gap:6px;font-size:10px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;padding:0 4px;"><span>Armazém/UF</span><span>Volume (KG)</span><span>Distância (KM)</span><span></span></div>` +
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:1.1fr .9fr .9fr .8fr 32px;gap:6px;font-size:10px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;padding:0 4px;"><span>Armazém/UF</span><span>Planejado</span><span>Realizado</span><span>KM</span><span></span></div>` +
     linhasCronograma.map((l, idx) => `
-    <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 32px;gap:6px;margin-bottom:8px;align-items:center;">
-      <input type="text" value="${l.uf}" placeholder="Armazém/UF" oninput="linhasCronograma[${idx}].uf=this.value; atualizarKpisETabelaCronograma();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
-      <input type="text" inputmode="decimal" value="${l.volume}" placeholder="Volume KG" oninput="linhasCronograma[${idx}].volume=this.value; atualizarKpisETabelaCronograma();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
-      <input type="text" inputmode="decimal" value="${l.distancia}" placeholder="KM" oninput="linhasCronograma[${idx}].distancia=this.value; atualizarKpisETabelaCronograma();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:8px;font-size:13px;">
+    <div style="display:grid;grid-template-columns:1.1fr .9fr .9fr .8fr 32px;gap:6px;margin-bottom:8px;align-items:center;">
+      <input type="text" value="${l.uf}" placeholder="Armazém/UF" oninput="linhasCronograma[${idx}].uf=this.value; atualizarKpisETabelaCronograma();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 8px;border-radius:8px;font-size:12.5px;">
+      <input type="text" inputmode="decimal" value="${l.volume}" placeholder="Kg" oninput="linhasCronograma[${idx}].volume=this.value; atualizarKpisETabelaCronograma();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 8px;border-radius:8px;font-size:12.5px;">
+      <input type="text" inputmode="decimal" value="${l.realizado||''}" placeholder="Kg" oninput="linhasCronograma[${idx}].realizado=this.value; atualizarKpisETabelaCronograma();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 8px;border-radius:8px;font-size:12.5px;">
+      <input type="text" inputmode="decimal" value="${l.distancia}" placeholder="KM" oninput="linhasCronograma[${idx}].distancia=this.value; atualizarKpisETabelaCronograma();" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 8px;border-radius:8px;font-size:12.5px;">
       <button class="eyeBtn" onclick="removerLinhaCronograma(${idx})" title="Remover">🗑️</button>
     </div>`).join('');
   atualizarKpisETabelaCronograma();
 }
 
 function adicionarLinhaCronograma(){
-  linhasCronograma.push({ uf:'', volume:'', distancia:'' });
+  linhasCronograma.push({ uf:'', volume:'', distancia:'', realizado:'' });
   renderLinhasCronograma();
 }
 function removerLinhaCronograma(idx){
@@ -4888,7 +4922,12 @@ function removerLinhaCronograma(idx){
 
 function destinosCronogramaPreenchidos(){
   return linhasCronograma.filter(l=>l.uf.trim() && l.volume!=='' && l.volume!=null)
-    .map(l=>({ uf: l.uf.trim(), volume: parseMoeda(l.volume), distancia: parseMoeda(l.distancia)||0 }));
+    .map(l=>({
+      uf: l.uf.trim(),
+      volume: parseMoeda(l.volume),
+      distancia: parseMoeda(l.distancia)||0,
+      realizado: (l.realizado!=null && l.realizado!=='') ? parseMoeda(l.realizado) : null
+    }));
 }
 
 function addDias(data, dias){
@@ -4912,7 +4951,8 @@ function calcularLinhaCronograma(destino){
     const prazo = new Date(CRONOGRAMA_CONFIG.prazo_limite_mes + 'T00:00:00');
     margemDias = Math.round((prazo - dataChegada) / (1000*60*60*24));
   }
-  return { ...destino, caminhoes, diasViagem, dataCarregamento, dataChegada, margemDias };
+  const diferenca = destino.realizado != null ? (destino.realizado - destino.volume) : null;
+  return { ...destino, caminhoes, diasViagem, dataCarregamento, dataChegada, margemDias, diferenca };
 }
 
 function corRiscoCronograma(margemDias){
@@ -4936,31 +4976,39 @@ function atualizarKpisETabelaCronograma(){
 
   const volumeTotal = destinos.reduce((s,d)=>s+d.volume,0);
   const caminhoesTotal = destinos.reduce((s,d)=>s+d.caminhoes,0);
+  const comRealizado = destinos.filter(d=>d.realizado!=null);
+  const realizadoTotal = comRealizado.reduce((s,d)=>s+d.realizado,0);
+  const diferencaTotal = comRealizado.length ? realizadoTotal - comRealizado.reduce((s,d)=>s+d.volume,0) : null;
   const piorMargem = destinos.filter(d=>d.margemDias!=null).sort((a,b)=>a.margemDias-b.margemDias)[0];
   const semanaLabel = document.getElementById('csSemanaLabel').value.trim() || '—';
   const dataCarregamentoFmt = destinos[0] ? fmtDate(destinos[0].dataCarregamento.toISOString().slice(0,10)) : '—';
 
   kpisEl.innerHTML = `<div class="repKpis">
-    <div class="repKpi"><div class="n">${volumeTotal.toLocaleString('pt-BR')}</div><div class="l">Volume Total da Semana (KG)</div></div>
+    <div class="repKpi"><div class="n">${volumeTotal.toLocaleString('pt-BR')}</div><div class="l">Volume Planejado (KG)</div></div>
     <div class="repKpi"><div class="n">${caminhoesTotal}</div><div class="l">Caminhões Necessários</div></div>
     <div class="repKpi"><div class="n" style="font-size:16px;">${semanaLabel}</div><div class="l">Semana de Referência</div></div>
     <div class="repKpi"><div class="n" style="font-size:16px;">${CRONOGRAMA_CONFIG.prazo_limite_mes ? fmtDate(CRONOGRAMA_CONFIG.prazo_limite_mes) : '—'}</div><div class="l">Prazo Limite do Mês</div></div>
     <div class="repKpi"><div class="n" style="font-size:15px;color:${piorMargem?corRiscoCronograma(piorMargem.margemDias):'var(--text-faint)'};">${piorMargem ? piorMargem.uf : '—'}</div><div class="l">Maior Risco${piorMargem && piorMargem.margemDias!=null ? ` (${piorMargem.margemDias>=0?'+':''}${piorMargem.margemDias}d)` : ''}</div></div>
     <div class="repKpi"><div class="n" style="font-size:16px;">${dataCarregamentoFmt}</div><div class="l">Data de Carregamento Programada</div></div>
+    ${comRealizado.length ? `<div class="repKpi"><div class="n">${realizadoTotal.toLocaleString('pt-BR')}</div><div class="l">Volume Realizado (KG)</div></div>
+    <div class="repKpi"><div class="n" style="color:${diferencaTotal>=0?'var(--green)':'var(--red)'};">${diferencaTotal>0?'+':''}${diferencaTotal.toLocaleString('pt-BR')}</div><div class="l">${diferencaTotal>=0?'Superou o planejado':'Falta pra bater a semana'} (KG)</div></div>` : ''}
   </div>`;
 
   tabelaEl.innerHTML = `<div class="tableWrap"><table>
-    <tr><th>Armazém/UF</th><th>Volume (KG)</th><th>Caminhões</th><th>Distância</th><th>Dias Viagem</th><th>Chegada Estimada</th><th>Margem/Risco</th></tr>
+    <tr><th>Armazém/UF</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Caminhões</th><th>Distância</th><th>Chegada Est.</th><th>Margem/Risco</th></tr>
     ${destinos.map(d=>{
       const cor = corRiscoCronograma(d.margemDias);
       const chegadaFmt = d.dataChegada ? fmtDate(d.dataChegada.toISOString().slice(0,10)) : '—';
       const margemTxt = d.margemDias!=null ? `${d.margemDias>=0?'+':''}${d.margemDias}d` : '—';
+      const difTxt = d.diferenca!=null ? `${d.diferenca>0?'+':''}${d.diferenca.toLocaleString('pt-BR')}` : '—';
+      const difCor = d.diferenca==null ? 'var(--text-faint)' : d.diferenca>=0 ? 'var(--green)' : 'var(--red)';
       return `<tr>
         <td>${d.uf}</td>
         <td class="mono">${d.volume.toLocaleString('pt-BR')}</td>
+        <td class="mono" style="color:var(--text-dim);">${d.realizado!=null ? d.realizado.toLocaleString('pt-BR') : '—'}</td>
+        <td class="mono" style="color:${difCor};font-weight:700;">${difTxt}</td>
         <td class="mono">${d.caminhoes}</td>
         <td class="mono" style="color:var(--text-dim);">${d.distancia} km</td>
-        <td class="mono" style="color:var(--text-dim);">${d.diasViagem!=null?d.diasViagem:'—'}</td>
         <td class="mono">${chegadaFmt}</td>
         <td class="mono" style="color:${cor};font-weight:700;">${margemTxt}${d.margemDias!=null && d.margemDias<0 ? ' ⚠️' : ''}</td>
       </tr>`;
@@ -4987,6 +5035,7 @@ async function salvarCronogramaSemanal(){
     : await sb.from('fp_gestao_cronograma_semanal').insert(payload);
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   await carregarTudo();
+  renderSeletorSemanaCronograma();
   renderHistoricoCronograma();
   toast(`${semanaLabel} salva.`);
 }
@@ -5005,11 +5054,12 @@ function renderHistoricoCronograma(){
       </summary>
       <div style="padding-bottom:14px;">
         <div class="tableWrap"><table>
-          <tr><th>Armazém/UF</th><th>Volume (KG)</th><th>Distância</th></tr>
-          ${(c.destinos||[]).map(d=>`<tr><td>${d.uf}</td><td class="mono">${(d.volume||0).toLocaleString('pt-BR')}</td><td class="mono" style="color:var(--text-dim);">${d.distancia||'—'} km</td></tr>`).join('')}
+          <tr><th>Armazém/UF</th><th>Planejado</th><th>Realizado</th><th>Distância</th></tr>
+          ${(c.destinos||[]).map(d=>`<tr><td>${d.uf}</td><td class="mono">${(d.volume||0).toLocaleString('pt-BR')}</td><td class="mono" style="color:var(--text-dim);">${d.realizado!=null?d.realizado.toLocaleString('pt-BR'):'—'}</td><td class="mono" style="color:var(--text-dim);">${d.distancia||'—'} km</td></tr>`).join('')}
         </table></div>
         <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="gerarPdfCronograma('${c.id}')">🖨️ PDF</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="carregarSemanaCronograma('${c.id}'); document.getElementById('csSelecionarSemana').value='${c.id}';">✏️ Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="gerarPdfCronograma('${c.id}')">🖨️ PDF</button>
           <button class="btn btn-danger btn-sm" onclick="excluirCronograma('${c.id}')">🗑️</button>
         </div>
       </div>
@@ -5038,9 +5088,13 @@ function gerarPdfCronograma(id){
     const corHex = d.margemDias==null ? '#8b93a1' : d.margemDias<0 ? '#C0392B' : d.margemDias<=2 ? '#E67E22' : '#1D9E75';
     const chegadaFmt = d.dataChegada ? fmtDate(d.dataChegada.toISOString().slice(0,10)) : '—';
     const margemTxt = d.margemDias!=null ? `${d.margemDias>=0?'+':''}${d.margemDias}d` : '—';
+    const difTxt = d.diferenca!=null ? `${d.diferenca>0?'+':''}${d.diferenca.toLocaleString('pt-BR')}` : '—';
+    const difCorHex = d.diferenca==null ? '#8b93a1' : d.diferenca>=0 ? '#1D9E75' : '#C0392B';
     return `<tr style="border-bottom:1px solid #eef0f2;">
       <td style="padding:6px 4px;color:#1c2733;font-weight:600;">${d.uf}</td>
       <td style="text-align:right;padding:6px 4px;color:#2c3948;">${d.volume.toLocaleString('pt-BR')}</td>
+      <td style="text-align:right;padding:6px 4px;color:#5c6472;">${d.realizado!=null ? d.realizado.toLocaleString('pt-BR') : '—'}</td>
+      <td style="text-align:right;padding:6px 4px;color:${difCorHex};font-weight:700;">${difTxt}</td>
       <td style="text-align:right;padding:6px 4px;color:#2c3948;">${d.caminhoes}</td>
       <td style="text-align:right;padding:6px 4px;color:#5c6472;">${d.distancia} km</td>
       <td style="text-align:right;padding:6px 4px;color:#5c6472;">${chegadaFmt}</td>
@@ -5080,11 +5134,13 @@ function gerarPdfCronograma(id){
           <div style="font-family:'Barlow Condensed';font-size:16px;font-weight:700;color:#0F1F35;margin-top:8px;">${piorMargem ? piorMargem.uf : '—'}</div>
         </div>
       </div>
-      <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #2D7DD2;padding-bottom:6px;margin-bottom:12px;">Detalhamento por Armazém — Risco de Prazo</div>
+      <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #2D7DD2;padding-bottom:6px;margin-bottom:12px;">Detalhamento por Armazém — Planejado x Realizado x Risco de Prazo</div>
       <table style="width:100%;border-collapse:collapse;font-size:11.5px;">
         <tr style="border-bottom:2px solid #0F1F35;">
           <th style="text-align:left;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Armazém/UF</th>
-          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Volume (kg)</th>
+          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Planejado (kg)</th>
+          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Realizado (kg)</th>
+          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Diferença</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Caminhões</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Distância</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Chegada Est.</th>
