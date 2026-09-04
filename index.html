@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V25</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V26</div>
     </div>
   </nav>
 
@@ -766,8 +766,22 @@
 
       <div class="panel">
         <h3>Destinatário do PDF executivo</h3>
-        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Nome que aparece no cabeçalho — troque conforme for enviar pra diretoria da Bravo ou direto pra ADAMA</p>
-        <input type="text" id="sndDestinatarioPdf" value="Tatiana Kimura" placeholder="Ex: Tatiana Kimura">
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Marque pra quem esse PDF vai — pode marcar mais de um. Aparece no cabeçalho como "Atualização para:"</p>
+        <div id="sndDestinatarioLista" style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" class="sndDestCheck" value="Tatiana Kimura" checked style="width:16px;height:16px;"> Tatiana Kimura (diretora)
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" class="sndDestCheck" value="Gustavo Bellintani" style="width:16px;height:16px;"> Gustavo Bellintani (gerente)
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" class="sndDestCheck" value="Clemente" style="width:16px;height:16px;"> Clemente (ADAMA)
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="sndDestOutroCheck" onchange="document.getElementById('sndDestOutroNome').style.display=this.checked?'block':'none';" style="width:16px;height:16px;"> Outro
+          </label>
+          <input type="text" id="sndDestOutroNome" placeholder="Digite o nome" style="display:none;">
+        </div>
       </div>
 
       <div class="panel">
@@ -3994,6 +4008,16 @@ function linhasFormatadasPdf(texto){
     .map(l=>`<p style="font-size:12px;color:#2c3948;line-height:1.6;margin:0 0 7px;">${l}</p>`).join('');
 }
 
+function obterDestinatariosSaude(){
+  const nomes = Array.from(document.querySelectorAll('.sndDestCheck:checked')).map(c=>c.value);
+  const outroCheck = document.getElementById('sndDestOutroCheck');
+  const outroNome = document.getElementById('sndDestOutroNome');
+  if(outroCheck && outroCheck.checked && outroNome && outroNome.value.trim()){
+    nomes.push(outroNome.value.trim());
+  }
+  return nomes.length ? nomes.join(', ') : 'Tatiana Kimura';
+}
+
 let projetosSelecionadosSaude = [];
 
 function renderSelecaoProjetosSaude(){
@@ -4115,7 +4139,7 @@ function gerarPdfSaude(id){
           <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;">Operação ADAMA · Coordenação 4PL</div>
           <div style="font-size:12px;color:#c3ceda;margin-top:2px;">Fábio Ferreira · Bravo Logística</div>
         </div>
-        <div style="font-size:11px;color:#c3ceda;text-align:right;">Atualização para Diretoria<br>${(document.getElementById('sndDestinatarioPdf') && document.getElementById('sndDestinatarioPdf').value.trim()) || 'Tatiana Kimura'}</div>
+        <div style="font-size:11px;color:#c3ceda;text-align:right;">Atualização para:<br>${obterDestinatariosSaude()}</div>
       </div>
     </div>
     <div style="padding:22px 30px 30px;">
