@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V21</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V22</div>
     </div>
   </nav>
 
@@ -4963,7 +4963,8 @@ function calcularAcumuladoDestino(uf, semanaInicioAtual){
 
 function calcularLinhaCronograma(destino, semanaInicioAtual){
   const volumeTon = destino.volume / 1000;
-  const caminhoes = Math.ceil(volumeTon / (CRONOGRAMA_CONFIG.capacidade_ton || 27));
+  const restanteCarregar = destino.realizado != null ? Math.max(0, volumeTon - destino.realizado) : volumeTon;
+  const caminhoes = Math.ceil(restanteCarregar / (CRONOGRAMA_CONFIG.capacidade_ton || 27));
   const diasViagem = destino.distancia > 0 ? Math.ceil(destino.distancia / (CRONOGRAMA_CONFIG.km_dia || 450)) : null;
   const hoje = todayISO();
   const dataCarregamento = addDias(hoje, 1);
@@ -4978,7 +4979,7 @@ function calcularLinhaCronograma(destino, semanaInicioAtual){
   }
   const diferenca = destino.realizado != null ? (destino.realizado - volumeTon) : null;
   const acumulado = calcularAcumuladoDestino(destino.uf, semanaInicioAtual);
-  return { ...destino, volumeTon, caminhoes, diasViagem, dataCarregamento, dataChegada, margemDias, diferenca, acumulado };
+  return { ...destino, volumeTon, restanteCarregar, caminhoes, diasViagem, dataCarregamento, dataChegada, margemDias, diferenca, acumulado };
 }
 
 function corRiscoCronograma(margemDias){
