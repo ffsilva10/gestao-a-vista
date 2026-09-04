@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V23</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V24</div>
     </div>
   </nav>
 
@@ -5113,6 +5113,7 @@ function gerarPdfCronograma(id){
   if(!c) return;
   const destinos = (c.destinos||[]).map(d => calcularLinhaCronograma(d, c.semana_inicio));
   const volumeTotal = destinos.reduce((s,d)=>s+d.volumeTon,0);
+  const realizadoTotalPdf = destinos.filter(d=>d.realizado!=null).reduce((s,d)=>s+d.realizado,0);
   const caminhoesTotal = destinos.reduce((s,d)=>s+d.caminhoes,0);
   const acumuladoTotal = destinos.reduce((s,d)=>s+d.acumulado,0);
   const piorMargem = destinos.filter(d=>d.margemDias!=null).sort((a,b)=>a.margemDias-b.margemDias)[0];
@@ -5152,23 +5153,27 @@ function gerarPdfCronograma(id){
     </div>
     <div style="padding:22px 30px 30px;">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;">
-        <div style="background:#eef4fb;border-radius:10px;padding:14px 16px;">
-          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#2D7DD2;font-weight:700;">Volume Total</div>
+        <div style="background:#eef4fb;border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#2D7DD2;font-weight:700;">Volume Projetado</div>
           <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;color:#0F1F35;margin-top:2px;">${fmtTon(volumeTotal)} ton</div>
         </div>
-        <div style="background:#f1faf6;border-radius:10px;padding:14px 16px;">
-          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#1D9E75;font-weight:700;">Caminhões Necessários</div>
+        <div style="background:#f1faf6;border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#1D9E75;font-weight:700;">Volume Real Realizado</div>
+          <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;color:#0F1F35;margin-top:2px;">${fmtTon(realizadoTotalPdf)} ton</div>
+        </div>
+        <div style="background:#f7f0fa;border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#6C3483;font-weight:700;">Caminhões Necessários</div>
           <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;color:#0F1F35;margin-top:2px;">${caminhoesTotal}</div>
         </div>
-        <div style="background:#fff4e8;border-radius:10px;padding:14px 16px;">
+        <div style="background:#fff4e8;border-radius:10px;padding:14px 16px;text-align:center;">
           <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#E67E22;font-weight:700;">Prazo Limite do Mês</div>
           <div style="font-family:'Barlow Condensed';font-size:18px;font-weight:700;color:#0F1F35;margin-top:8px;">${CRONOGRAMA_CONFIG.prazo_limite_mes ? fmtDate(CRONOGRAMA_CONFIG.prazo_limite_mes) : '—'}</div>
         </div>
-        <div style="background:${piorMargem && piorMargem.margemDias<0 ? '#fbeeee' : '#f7f0fa'};border-radius:10px;padding:14px 16px;">
+        <div style="background:${piorMargem && piorMargem.margemDias<0 ? '#fbeeee' : '#f7f0fa'};border-radius:10px;padding:14px 16px;text-align:center;">
           <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${piorMargem && piorMargem.margemDias<0 ? '#C0392B' : '#6C3483'};font-weight:700;">Maior Risco</div>
           <div style="font-family:'Barlow Condensed';font-size:16px;font-weight:700;color:#0F1F35;margin-top:8px;">${piorMargem ? piorMargem.uf : '—'}</div>
         </div>
-        ${acumuladoTotal>0 ? `<div style="background:#fff4e0;border:1px solid #f0d090;border-radius:10px;padding:14px 16px;">
+        ${acumuladoTotal>0 ? `<div style="background:#fff4e0;border:1px solid #f0d090;border-radius:10px;padding:14px 16px;text-align:center;">
           <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#B7791F;font-weight:700;">⚠️ Volume Acumulado (Semanas Anteriores)</div>
           <div style="font-family:'Barlow Condensed';font-size:22px;font-weight:700;color:#0F1F35;margin-top:2px;">${fmtTon(acumuladoTotal)} ton</div>
         </div>` : ''}
