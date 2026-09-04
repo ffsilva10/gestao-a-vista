@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V22</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V23</div>
     </div>
   </nav>
 
@@ -5026,7 +5026,7 @@ function atualizarKpisETabelaCronograma(){
   </div>`;
 
   tabelaEl.innerHTML = `<div class="tableWrap"><table>
-    <tr><th>Armazém/UF</th><th>Planejado (ton)</th><th>Realizado (ton)</th><th>Diferença (ton)</th><th>Acumulado ant. (ton)</th><th>${capacidadeLabel}</th><th>Distância</th><th>Chegada Est.</th><th>Margem/Risco</th><th>P/ próx. semana</th></tr>
+    <tr><th>Armazém/UF</th><th>Planejado (ton)</th><th>Realizado (ton)</th><th>Diferença (ton)</th><th>Acumulado ant. (ton)</th><th>${capacidadeLabel}</th><th>Distância</th><th>Margem/Risco</th><th>P/ próx. semana</th></tr>
     ${destinos.map(d=>{
       const cor = corRiscoCronograma(d.margemDias);
       const chegadaFmt = d.dataChegada ? fmtDate(d.dataChegada.toISOString().slice(0,10)) : '—';
@@ -5041,7 +5041,6 @@ function atualizarKpisETabelaCronograma(){
         <td>${d.acumulado>0 ? `<span class="badge" style="background:rgba(242,169,59,.15);color:var(--amber);">↩️ ${fmtTon(d.acumulado)} ton</span>` : '<span class="mono" style="color:var(--text-faint);">—</span>'}</td>
         <td class="mono">${d.caminhoes}</td>
         <td class="mono" style="color:var(--text-dim);">${d.distancia} km</td>
-        <td class="mono">${chegadaFmt}</td>
         <td class="mono" style="color:${cor};font-weight:700;">${margemTxt}${d.margemDias!=null && d.margemDias<0 ? ' ⚠️' : ''}</td>
         <td>${d.direcionado ? '<span class="badge" style="background:rgba(232,93,93,.15);color:var(--red);">Sim</span>' : '<span style="color:var(--text-faint);">Não</span>'}</td>
       </tr>`;
@@ -5133,7 +5132,6 @@ function gerarPdfCronograma(id){
       <td style="text-align:right;padding:6px 4px;">${acumuladoHtml}</td>
       <td style="text-align:right;padding:6px 4px;color:#2c3948;">${d.caminhoes}</td>
       <td style="text-align:right;padding:6px 4px;color:#5c6472;">${d.distancia} km</td>
-      <td style="text-align:right;padding:6px 4px;color:#5c6472;">${chegadaFmt}</td>
       <td style="text-align:right;padding:6px 4px;color:${corHex};font-weight:700;">${margemTxt}</td>
       <td style="text-align:right;padding:6px 4px;color:${d.direcionado?'#C0392B':'#8b93a1'};font-weight:${d.direcionado?'700':'400'};">${d.direcionado?'Sim':'Não'}</td>
     </tr>`;
@@ -5185,7 +5183,6 @@ function gerarPdfCronograma(id){
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Acum. ant. (ton)</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Caminhões</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Distância</th>
-          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Chegada Est.</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Margem</th>
           <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">P/ próx. semana</th>
         </tr>
