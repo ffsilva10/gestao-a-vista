@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V24</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V25</div>
     </div>
   </nav>
 
@@ -842,6 +842,16 @@
           <div class="field"><label>KM rodados por dia</label><input type="text" inputmode="decimal" id="csKmDia"></div>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="salvarConfigCronograma()">💾 Salvar configuração</button>
+      </div>
+
+      <div class="panel">
+        <h3>📊 Consolidado do Mês</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin:-4px 0 12px;">Soma todas as semanas do mês selecionado — pra ver se estamos chegando perto do combinado geral</p>
+        <div class="field" style="max-width:280px;"><label>Mês</label><select id="csConsolidadoMes" onchange="renderConsolidadoCronograma()"></select></div>
+        <div id="csConsolidadoKpis"></div>
+        <div id="csConsolidadoTabela" style="margin-top:10px;"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="gerarPdfConsolidadoCronograma()">🖨️ Gerar PDF do Consolidado</button>
+        <div id="pdfConsolidadoPreview"></div>
       </div>
 
       <div class="panel">
@@ -4838,6 +4848,7 @@ function renderCronogramaView(){
     cronogramaViewInicializada = true;
   }
   renderSeletorSemanaCronograma();
+  renderSeletorMesConsolidado();
   renderHistoricoCronograma();
 }
 
@@ -5068,6 +5079,7 @@ async function salvarCronogramaSemanal(){
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
   await carregarTudo();
   renderSeletorSemanaCronograma();
+  renderSeletorMesConsolidado();
   renderHistoricoCronograma();
   toast(`${semanaLabel} salva.`);
 }
@@ -5105,7 +5117,142 @@ async function excluirCronograma(id){
   if(error){ toast('Erro: ' + error.message, true); return; }
   await carregarTudo();
   renderHistoricoCronograma();
+  renderSeletorMesConsolidado();
   toast('Semana excluída.');
+}
+
+function renderSeletorMesConsolidado(){
+  const sel = document.getElementById('csConsolidadoMes');
+  if(!sel) return;
+  const mesesSet = new Set();
+  STATE.cronogramaSemanas.forEach(c=>{ if(c.semana_inicio) mesesSet.add(c.semana_inicio.slice(0,7)); });
+  const meses = Array.from(mesesSet).sort((a,b)=>b.localeCompare(a));
+  const atual = sel.value;
+  sel.innerHTML = meses.map(m=>`<option value="${m}">${mesLabel(m)}</option>`).join('') || '<option value="">Nenhuma semana salva ainda</option>';
+  sel.value = meses.includes(atual) ? atual : (meses[0] || '');
+  renderConsolidadoCronograma();
+}
+
+function dadosConsolidadoMes(mesRef){
+  const semanas = STATE.cronogramaSemanas.filter(c => c.semana_inicio && c.semana_inicio.slice(0,7) === mesRef);
+  const mapa = {};
+  semanas.forEach(c=>{
+    (c.destinos||[]).forEach(d=>{
+      if(!mapa[d.uf]) mapa[d.uf] = { uf: d.uf, planejadoTon: 0, realizado: 0, temRealizado: false };
+      mapa[d.uf].planejadoTon += (d.volume || 0) / 1000;
+      if(d.realizado != null){ mapa[d.uf].realizado += d.realizado; mapa[d.uf].temRealizado = true; }
+    });
+  });
+  const destinos = Object.values(mapa).map(d => ({
+    ...d,
+    diferenca: d.temRealizado ? (d.realizado - d.planejadoTon) : null
+  }));
+  return { semanas, destinos };
+}
+
+function renderConsolidadoCronograma(){
+  const mesRef = document.getElementById('csConsolidadoMes').value;
+  const kpisEl = document.getElementById('csConsolidadoKpis');
+  const tabelaEl = document.getElementById('csConsolidadoTabela');
+  if(!mesRef){ kpisEl.innerHTML = emptyState('Cadastre pelo menos uma semana pra ver o consolidado.'); tabelaEl.innerHTML = ''; return; }
+
+  const { semanas, destinos } = dadosConsolidadoMes(mesRef);
+  const planejadoTotal = destinos.reduce((s,d)=>s+d.planejadoTon,0);
+  const comRealizado = destinos.filter(d=>d.temRealizado);
+  const realizadoTotal = comRealizado.reduce((s,d)=>s+d.realizado,0);
+  const diferencaTotal = comRealizado.length ? realizadoTotal - comRealizado.reduce((s,d)=>s+d.planejadoTon,0) : null;
+  const pctConcluido = planejadoTotal>0 && comRealizado.length ? (realizadoTotal/planejadoTotal)*100 : null;
+
+  kpisEl.innerHTML = `<div class="repKpis" style="margin-top:10px;">
+    <div class="repKpi"><div class="n" style="font-size:16px;">${mesLabel(mesRef)}</div><div class="l">Mês consolidado (${semanas.length} semana${semanas.length!==1?'s':''})</div></div>
+    <div class="repKpi"><div class="n">${fmtTon(planejadoTotal)}</div><div class="l">Volume Projetado Total (ton)</div></div>
+    ${comRealizado.length ? `<div class="repKpi"><div class="n">${fmtTon(realizadoTotal)}</div><div class="l">Volume Realizado Total (ton)</div></div>
+    <div class="repKpi"><div class="n" style="color:${diferencaTotal>=0?'var(--green)':'var(--red)'};">${diferencaTotal>0?'+':''}${fmtTon(diferencaTotal)}</div><div class="l">${diferencaTotal>=0?'Superou o combinado':'Falta pra bater o combinado'} (ton)</div></div>
+    <div class="repKpi"><div class="n" style="color:${pctConcluido>=100?'var(--green)':pctConcluido>=80?'var(--amber)':'var(--red)'};">${pctConcluido.toFixed(0)}%</div><div class="l">% do combinado atingido</div></div>` : ''}
+  </div>`;
+
+  tabelaEl.innerHTML = `<div class="tableWrap"><table>
+    <tr><th>Armazém/UF</th><th>Projetado (ton)</th><th>Realizado (ton)</th><th>Diferença (ton)</th></tr>
+    ${destinos.map(d=>{
+      const difTxt = d.diferenca!=null ? `${d.diferenca>0?'+':''}${fmtTon(d.diferenca)}` : '—';
+      const difCor = d.diferenca==null ? 'var(--text-faint)' : d.diferenca>=0 ? 'var(--green)' : 'var(--red)';
+      return `<tr>
+        <td>${d.uf}</td>
+        <td class="mono">${fmtTon(d.planejadoTon)}</td>
+        <td class="mono" style="color:var(--text-dim);">${d.temRealizado ? fmtTon(d.realizado) : '—'}</td>
+        <td class="mono" style="color:${difCor};font-weight:700;">${difTxt}</td>
+      </tr>`;
+    }).join('')}
+  </table></div>`;
+}
+
+function gerarPdfConsolidadoCronograma(){
+  const mesRef = document.getElementById('csConsolidadoMes').value;
+  if(!mesRef){ toast('Cadastre pelo menos uma semana primeiro.', true); return; }
+  const { semanas, destinos } = dadosConsolidadoMes(mesRef);
+  const planejadoTotal = destinos.reduce((s,d)=>s+d.planejadoTon,0);
+  const comRealizado = destinos.filter(d=>d.temRealizado);
+  const realizadoTotal = comRealizado.reduce((s,d)=>s+d.realizado,0);
+  const diferencaTotal = comRealizado.length ? realizadoTotal - comRealizado.reduce((s,d)=>s+d.planejadoTon,0) : null;
+  const pctConcluido = planejadoTotal>0 && comRealizado.length ? (realizadoTotal/planejadoTotal)*100 : null;
+
+  const linhasTabela = destinos.map(d=>{
+    const difTxt = d.diferenca!=null ? `${d.diferenca>0?'+':''}${fmtTon(d.diferenca)}` : '—';
+    const difCorHex = d.diferenca==null ? '#8b93a1' : d.diferenca>=0 ? '#1D9E75' : '#C0392B';
+    return `<tr style="border-bottom:1px solid #eef0f2;">
+      <td style="padding:6px 4px;color:#1c2733;font-weight:600;">${d.uf}</td>
+      <td style="text-align:right;padding:6px 4px;color:#2c3948;">${fmtTon(d.planejadoTon)}</td>
+      <td style="text-align:right;padding:6px 4px;color:#5c6472;">${d.temRealizado ? fmtTon(d.realizado) : '—'}</td>
+      <td style="text-align:right;padding:6px 4px;color:${difCorHex};font-weight:700;">${difTxt}</td>
+    </tr>`;
+  }).join('');
+
+  const preview = document.getElementById('pdfConsolidadoPreview');
+  preview.innerHTML = `
+  <div class="reportPage" style="max-width:100%;padding:0;overflow:hidden;">
+    <div style="background:#0F1F35;color:#fff;padding:22px 30px;">
+      <div style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#8fa3c2;">Consolidado do Mês · ${mesLabel(mesRef)} · ${semanas.length} semana${semanas.length!==1?'s':''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px;">
+        <div>
+          <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;">Operação ADAMA · Expedição Bravo</div>
+          <div style="font-size:12px;color:#c3ceda;margin-top:2px;">Fábio Ferreira · Bravo Logística · Origem: ${CRONOGRAMA_CONFIG.origem}</div>
+        </div>
+        <div style="font-size:11px;color:#c3ceda;text-align:right;">Acompanhamento Diário<br>Clemente · Gustavo Bellintani</div>
+      </div>
+    </div>
+    <div style="padding:22px 30px 30px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;">
+        <div style="background:#eef4fb;border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#2D7DD2;font-weight:700;">Volume Projetado Total</div>
+          <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;color:#0F1F35;margin-top:2px;">${fmtTon(planejadoTotal)} ton</div>
+        </div>
+        ${comRealizado.length ? `<div style="background:#f1faf6;border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#1D9E75;font-weight:700;">Volume Real Realizado</div>
+          <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;color:#0F1F35;margin-top:2px;">${fmtTon(realizadoTotal)} ton</div>
+        </div>
+        <div style="background:${diferencaTotal>=0?'#f1faf6':'#fbeeee'};border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${diferencaTotal>=0?'#1D9E75':'#C0392B'};font-weight:700;">${diferencaTotal>=0?'Superou o Combinado':'Falta pro Combinado'}</div>
+          <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;color:${diferencaTotal>=0?'#1D9E75':'#C0392B'};margin-top:2px;">${diferencaTotal>0?'+':''}${fmtTon(diferencaTotal)} ton</div>
+        </div>
+        <div style="background:${pctConcluido>=100?'#f1faf6':pctConcluido>=80?'#fff4e8':'#fbeeee'};border-radius:10px;padding:14px 16px;text-align:center;">
+          <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${pctConcluido>=100?'#1D9E75':pctConcluido>=80?'#E67E22':'#C0392B'};font-weight:700;">% do Combinado Atingido</div>
+          <div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;color:#0F1F35;margin-top:2px;">${pctConcluido.toFixed(0)}%</div>
+        </div>` : ''}
+      </div>
+      <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#0F1F35;font-weight:700;border-bottom:2px solid #2D7DD2;padding-bottom:6px;margin-bottom:12px;">Detalhamento por Armazém — Projetado x Realizado no Mês</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11.5px;">
+        <tr style="border-bottom:2px solid #0F1F35;">
+          <th style="text-align:left;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Armazém/UF</th>
+          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Projetado (ton)</th>
+          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Realizado (ton)</th>
+          <th style="text-align:right;padding:5px 4px;color:#5c6472;font-size:10px;text-transform:uppercase;">Diferença (ton)</th>
+        </tr>
+        ${linhasTabela}
+      </table>
+    </div>
+  </div>`;
+  ativarPreviewImpressao(preview);
+  setTimeout(()=> window.print(), 200);
 }
 
 function gerarPdfCronograma(id){
