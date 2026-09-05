@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V26</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V27</div>
     </div>
   </nav>
 
@@ -4860,6 +4860,7 @@ const CRONOGRAMA_DISTANCIAS_PADRAO = {
   'Rio Verde - GO': 950
 };
 let linhasCronograma = [];
+let cronogramaEditandoId = null;
 let cronogramaViewInicializada = false;
 
 function renderCronogramaView(){
@@ -4888,6 +4889,7 @@ function carregarSemanaCronograma(id){
   if(!id){ novaSemanaCronograma(); return; }
   const c = STATE.cronogramaSemanas.find(x=>x.id===id);
   if(!c) return;
+  cronogramaEditandoId = c.id;
   document.getElementById('csSemanaLabel').value = c.semana_label;
   document.getElementById('csSemanaInicio').value = c.semana_inicio;
   document.getElementById('csSemanaFim').value = c.semana_fim || '';
@@ -4925,6 +4927,7 @@ async function salvarConfigCronograma(){
 }
 
 function novaSemanaCronograma(){
+  cronogramaEditandoId = null;
   document.getElementById('csSemanaLabel').value = '';
   document.getElementById('csSemanaInicio').value = '';
   document.getElementById('csSemanaFim').value = '';
@@ -5096,13 +5099,18 @@ async function salvarCronogramaSemanal(){
   if(destinos.length===0){ toast('Adicione ao menos um armazém.', true); return; }
 
   const payload = { semana_label: semanaLabel, semana_inicio: semanaInicio, semana_fim: semanaFim || null, destinos };
-  const existente = STATE.cronogramaSemanas.find(c => c.semana_label === semanaLabel && c.semana_inicio === semanaInicio);
-  const { error } = existente
-    ? await sb.from('fp_gestao_cronograma_semanal').update(payload).eq('id', existente.id)
-    : await sb.from('fp_gestao_cronograma_semanal').insert(payload);
+  // Prioriza o ID da semana que foi carregada pra edição (mais confiável que comparar texto/data).
+  // Só cai no match por rótulo+início como rede de segurança quando não há semana carregada (ex: nova semana com nome de uma já existente).
+  const existente = (cronogramaEditandoId && STATE.cronogramaSemanas.find(c => c.id === cronogramaEditandoId))
+    || STATE.cronogramaSemanas.find(c => c.semana_label === semanaLabel && c.semana_inicio === semanaInicio);
+  const { data: salvo, error } = existente
+    ? await sb.from('fp_gestao_cronograma_semanal').update(payload).eq('id', existente.id).select().maybeSingle()
+    : await sb.from('fp_gestao_cronograma_semanal').insert(payload).select().maybeSingle();
   if(error){ toast('Erro ao salvar: ' + error.message, true); return; }
+  cronogramaEditandoId = salvo ? salvo.id : (existente ? existente.id : null);
   await carregarTudo();
   renderSeletorSemanaCronograma();
+  document.getElementById('csSelecionarSemana').value = cronogramaEditandoId || '';
   renderSeletorMesConsolidado();
   renderHistoricoCronograma();
   toast(`${semanaLabel} salva.`);
