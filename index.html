@@ -319,7 +319,7 @@
       <div class="userChip" id="userChip"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px;" onclick="toggleTheme()" id="btnTheme">🌙 Modo escuro</button>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
-      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V27</div>
+      <div style="text-align:center;font-size:10px;color:var(--text-faint);margin-top:10px;font-family:'JetBrains Mono',monospace;">V28</div>
     </div>
   </nav>
 
@@ -868,7 +868,7 @@
         <div id="pdfConsolidadoPreview"></div>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="cronogramaFormPanel">
         <h3>Semana de referência</h3>
         <div class="field">
           <label>Escolher semana já salva pra analisar</label>
@@ -4902,6 +4902,8 @@ function carregarSemanaCronograma(id){
   }));
   renderLinhasCronograma();
   toast(`${c.semana_label} carregada.`);
+  const painel = document.getElementById('cronogramaFormPanel');
+  if(painel) painel.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 async function salvarConfigCronograma(){
